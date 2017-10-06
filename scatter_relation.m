@@ -14,7 +14,8 @@
 function [m] = scatter_relation(c, gc, ns, nd)
     INPUT = 1:4; OUTPUT = 5:8; TIME = 9;
     dt = 1e-2;
-    m = zeros(ns * nd, 9); 
+    m = zeros(ns * nd, 4);
+    o = zeros(ns * nd, 5);
     s = linspace(0, 2 * pi, ns + 1); s(end)=[];
     d = linspace(0, pi, nd + 2); d(1) = []; d(end) = [];
     loc = [cos(s); sin(s)];
@@ -29,7 +30,7 @@ function [m] = scatter_relation(c, gc, ns, nd)
     
     F = @(X)([c(X(1), X(2))^2 * X(3:4)   -(X(3:4)*X(3:4)') * gc(X(1), X(2)) * c(X(1), X(2)) ]);
     
-    for i = 1:ns * nd
+    parfor i = 1:ns * nd
         X = m(i, INPUT);
         t = 0; 
         while true
@@ -44,8 +45,9 @@ function [m] = scatter_relation(c, gc, ns, nd)
                 break;
             end
         end
-        m(i, OUTPUT) = X;
-        m(i, TIME) = t;
+        o(i, :) = [X, t];
     end
+    
+    m = [m o];
 end
 

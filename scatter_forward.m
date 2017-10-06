@@ -14,7 +14,7 @@
 function [ s ] = scatter_forward( m, c, ext)
     INPUT = 1:4; OUTPUT = 5:8; TIME = 9; dt = 1e-2;
     N = size(c, 1);
-    s = m; s(:, OUTPUT) = 0;
+    s = m;s(:, OUTPUT) = 0;
     p = linspace(-ext, ext, N); 
     h = p(2) - p(1);
     
@@ -26,7 +26,7 @@ function [ s ] = scatter_forward( m, c, ext)
         end
     end
           
-    for i = 1 : size(m, 1)
+    parfor i = 1 : size(m, 1)
         X = m(i, INPUT);
         t = 0;
         while t < m(i, TIME)
@@ -51,7 +51,6 @@ function [ s ] = scatter_forward( m, c, ext)
             X = X + (k1+2*k2+2*k3+k4)/6.0;     
         end
         s(i, OUTPUT) = X;
-        s(i, TIME) = t;
         
     end
 end
