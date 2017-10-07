@@ -11,7 +11,7 @@
 % s : discretized scatter relation matrix.
 % todo: ray information and fast inversion routine for 4x4 matrix.
 
-function [ s ] = scatter_forward( m, c, ext)
+function [ s ] = scatter_forward( m, c, ext) 
     INPUT = 1:4; OUTPUT = 5:8; TIME = 9; dt = 1e-2;
     
     N = size(c, 1);

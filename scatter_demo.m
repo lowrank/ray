@@ -6,7 +6,7 @@ m = scatter_relation(c, gc, 30, 60);
 %%
 ext = 1.5; N = 60;
 [x,y] = meshgrid(linspace(-ext, ext, N));
-c = @(x, y)(1 + 0.4 * sin(pi .* x) .* sin(pi .* y));
+c = @(x, y)(1 + 0.3 * sin(pi .* x) .* sin(pi .* y));
 dc = c(x, y);
 
 s = scatter_forward(m, dc, ext);
