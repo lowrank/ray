@@ -1,12 +1,15 @@
-function F = Hamilton(X, coef, p, I, J) 
+function F = Hamilton(X,coef, grdx, grdy, p, I, J) 
 % Hamilton calculates the Hamiltonian system's entries.
-    lc = coef(I, J, 1) +...
-        coef(I, J, 2) * (X(1) - p(I)) + ...
-        coef(I, J, 3) * (X(2) - p(J)) + ...
-        coef(I, J, 4) *  (X(1) - p(I)) * ( (X(2) - p(J)) );
+    dx = X(1) - p(I);
+    dy = X(2) - p(J);
+    z = [1, dx, dy, dx*dy];
+    lij = coef(I, J, :);
+    lc = z * lij(:);
     
-    lgc = [coef(I, J, 2) + coef(I, J, 4) *  ( (X(2) - p(J)) )  ...
-           coef(I, J, 3) + coef(I, J, 4) *  ( (X(1) - p(I)) )];
+    % better approximation, but slower?
+    rij = grdx(I, J, :);
+    cij = grdy(I, J, :);
+    lgc = z * [rij(:) cij(:)];
     
     F = [lc^2 * X(3:4) -lgc * lc * (X(3:4)*X(3:4)')];
 end

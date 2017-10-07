@@ -12,7 +12,7 @@
 % m  : scatter relation, each row includes [Xs, Xr, t]
 
 function [m] = scatter_relation(c, gc, ns, nd)
-    INPUT = 1:4; OUTPUT = 5:8; TIME = 9;
+    INPUT = 1:4; 
     dt = 1e-2;
     m = zeros(ns * nd, 4);
     o = zeros(ns * nd, 5);
@@ -39,7 +39,7 @@ function [m] = scatter_relation(c, gc, ns, nd)
             k2 = F(X + k1/2) * dt;
             k3 = F(X + k2/2) * dt;
             k4 = F(X + k3) * dt;
-            X = X + (k1+2*k2+2*k3+k4)/6.0;
+            X = X + (k1 + 2*k2 + 2*k3 + k4)/6.0;
             t = t + dt;
             if X(1:2) * X(1:2)' >= 1
                 break;
