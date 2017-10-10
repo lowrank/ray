@@ -13,7 +13,7 @@
 
 function [m] = scatter_relation(c, gc, ns, nd)
     INPUT = 1:4; 
-    dt = 1e-2;
+    dt = 5e-2;
     m = zeros(ns * nd, 4);
     o = zeros(ns * nd, 5);
     s = linspace(0, 2 * pi, ns + 1); s(end)=[];
