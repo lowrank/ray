@@ -1,7 +1,7 @@
 r = @(x,y)(sqrt((x-0.3).^2 + (y-0.3).^2));
-v = @(x,y)(sqrt((x+0.2).^2 + (y+0.2).^2));
-c = @(x, y)(1 + 0.4 * sin(pi * r(x,y)) + 0.3 * sin(pi*v(x,y)));
-gc =@(x, y)(0.4 * pi * cos(pi* r(x,y)) * [(x-0.3)./r(x,y)  (y-0.3)./r(x,y)] + 0.3 * pi * cos(pi * v(x,y)) * [(x+0.2)./v(x,y) (y+0.2)./v(x,y)]  );
+v = 
+c = @(x, y)(1 + 0.4 * sin(pi * r(x,y)));
+gc =@(x, y)(0.4 * pi * cos(pi* r(x,y)) * [(x-0.3)./r(x,y)  (y-0.3)./r(x,y)]);
 
 
 ns = 30; na = 50;
