@@ -11,7 +11,7 @@
 % s : discretized scatter relation matrix.
 % M : linearization matrix
 
-function [s, err, M] = scatter_forward( m, c, ext, delta) 
+function [s, err, M, t] = scatter_forward( m, c, ext, delta) 
     INPUT = 1:4; OUTPUT = 5:8; TIME = 9; dt = 5e-2;
     
     N = size(c, 1);
@@ -104,6 +104,6 @@ function [s, err, M] = scatter_forward( m, c, ext, delta)
         s(i, OUTPUT) = X;
         err(i, :) = ( M(4 * i -3:4*i, :) * dd)';
     end
-    toc;
+    t = toc;
 %     hold off;
 end
