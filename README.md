@@ -4,3 +4,5 @@ Adaptive phase space method for traveltime in 2D
 1. RK4 is used to solve Hamiltonian for data generation.
 2. The ending location is not precisely at boundary.
 3. For parallel use, all functions does not involve class related variable.
+4. Both adaptive and non-adaptive are implemented.
+5. Obstacle not tested yet.

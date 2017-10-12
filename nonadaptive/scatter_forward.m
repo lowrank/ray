@@ -9,7 +9,7 @@
 %
 % output variables:
 % s : discretized scatter relation matrix.
-% todo: ray information and fast inversion routine for 4x4 matrix.
+% M : linearization matrix
 
 function [s, err, M] = scatter_forward( m, c, ext, delta) 
     INPUT = 1:4; OUTPUT = 5:8; TIME = 9; dt = 5e-2;
