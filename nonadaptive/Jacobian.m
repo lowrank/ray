@@ -8,8 +8,8 @@ function [ M ] = Jacobian(X, coef, grdx, grdy, grxx, grxy, gryy, p, I, J)
     % better approximation, but slower?
     rij = grdx(I, J, :);
     cij = grdy(I, J, :);
-    
-    Hxx = grxx(I, J, :);
+   
+    Hxx = grxx(I, J, :); 
     Hxy = grxy(I, J, :);
     Hyy = gryy(I, J, :);
     
