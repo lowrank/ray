@@ -1,17 +1,17 @@
 %% setting up speed, gradient.
 r = @(x,y)(sqrt((x-0.3).^2 + (y-0.3).^2));
 v = @(x,y)(sqrt((x+0.2).^2 + (y+0.2).^2));
-c = @(x, y)(1 + 0.4 * sin(pi * r(x,y)) + 0.3 * sin(pi*v(x,y)));
-gc =@(x, y)(0.4 * pi * cos(pi* r(x,y)) * [(x-0.3)./r(x,y)  (y-0.3)./r(x,y)] + 0.3 * pi * cos(pi * v(x,y)) * [(x+0.2)./v(x,y) (y+0.2)./v(x,y)]  );
+c = @(x, y)(1 + 1.0 * sin(pi * r(x,y)) + 1.0 * sin(pi*v(x,y)));
+gc =@(x, y)(1.0 * pi * cos(pi* r(x,y)) * [(x-0.3)./r(x,y)  (y-0.3)./r(x,y)] + 1.0 * pi * cos(pi * v(x,y)) * [(x+0.2)./v(x,y) (y+0.2)./v(x,y)]  );
 
 %% data generation
-ns = 50; na = 50;
+ns = 100; na = 100;
 m = scatter_relation(c, gc, ns, na);
 h = reshape(m(:, 5:8), size(m,1)*4, 1); % make vector of data
 %% settings of domain
-ext = 1.5; N = 60;
+ext = 2; N = 80;
 [y, x] = meshgrid(linspace(-ext, ext, N));
-c0 = @(x, y)(0.8 + 0. * sin(pi .* sqrt(x.^2 + y.^2)));
+c0 = @(x, y)(0.2 + 0. * sin(pi .* sqrt(x.^2 + y.^2)));
 dx = 2 * ext / N;
 c0_ = c0(x, y);
 dc = c(x,y) - c0_;
@@ -93,17 +93,17 @@ while true
     q = reshape(q', ns*na*4, 1);
     
     Mi = M(ord, inn);
-    %% 
+     
     tic;
     delta(inn) = (Mi'*Mi + alpha * reg(inn, inn))\(Mi'*q(ord));
     tj = toc;
-    %%
+    
     residue = Mi * delta(inn) - q(ord);
     mis_rate = abs(residue ./ h(ord));
     for k = 1:size(ord, 1)
         if mis_rate(k) < rej_thres
             I = find(M(ord(k), :));
-            fid(I) = max(fid(I) , 1-rej_thres);
+            fid(I) = max(fid(I) , 1 - 10*mis_rate(k));
         end
     end
 %     fid(find(sum(M(ord(mis_rate), :), 1))) = 1.0;
@@ -119,15 +119,17 @@ while true
    
     
     subplot(2,2,1);
-    surf(x,y, log10(abs(reshape(delta, N,N)+c0_-c_).*(sqrt(x.^2 + y.^2) <= 1)));shading interp;colorbar;caxis([-4, 0]);view(2);colormap jet;drawnow;  
+    surf(x,y, abs(reshape(delta, N,N)+c0_-c_)./c_.*log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0));shading interp;colorbar;view(2);colormap jet;  
+    title('relative error');
     subplot(2,2,2);
-    surf(x,y, (reshape(fid, N,N)).*log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0), 'EdgeColor', 'none');colorbar;view(2);colormap jet;drawnow; 
+    surf(x,y, (reshape(fid, N,N)).*log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0), 'EdgeColor', 'none');colorbar;view(2);colormap jet;
+    title('auxiliary fidelity');
     subplot(2,2,3);
-    surf(x,y, ((c_).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0)));shading interp;colorbar;view(2);colormap jet;drawnow;
+    surf(x,y, (c_).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0));shading interp;colorbar;view(2);colormap jet;
+    title('real speed');
     subplot(2,2,4);
-    surf(x,y, ((reshape(delta, N,N)+c0_  ).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0)));shading interp;colorbar;view(2);colormap jet;drawnow;
-
-    
+    surf(x,y, ((reshape(delta, N,N)+c0_  ).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0)));shading interp;colorbar;view(2);colormap jet;
+    title('recovered speed');  drawnow;
     
     if err < 1e-2 || iter > 25
         break;
@@ -135,12 +137,15 @@ while true
 end
 %%
 subplot(2,2,1);
-surf(x,y, log10(abs(reshape(delta, N,N)+c0_-c_).*(sqrt(x.^2 + y.^2) <= 1)));shading interp;colorbar;caxis([-4, 0]);view(2);colormap jet;drawnow;  
+surf(x,y, abs(reshape(delta, N,N)+c0_-c_)./c_.*log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0));shading interp;colorbar;view(2);colormap jet; 
+title('relative error');
 subplot(2,2,2);
-surf(x,y, (reshape(fid, N,N)).*log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0), 'EdgeColor', 'none');colorbar;view(2);colormap jet;drawnow; 
+surf(x,y, (reshape(fid, N,N)).*log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0), 'EdgeColor', 'none');colorbar;view(2);colormap jet;
+title('auxiliary fidelity');
 subplot(2,2,3);
-surf(x,y, (c_).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0));shading interp;colorbar;view(2);colormap jet;drawnow;
+surf(x,y, (c_).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0));shading interp;colorbar;view(2);colormap jet;
+title('real speed');
 subplot(2,2,4);
-surf(x,y, ((reshape(delta, N,N)+c0_  ).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0)));shading interp;colorbar;view(2);colormap jet;drawnow;
-  
+surf(x,y, ((reshape(delta, N,N)+c0_  ).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0)));shading interp;colorbar;view(2);colormap jet;
+title('recovered speed');  drawnow;
 
