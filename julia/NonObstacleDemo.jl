@@ -1,6 +1,7 @@
 addprocs(3)
-
-@everywhere include("NonObstacle.jl")
+using PyPlot
+@everywhere using Suppressor
+@everywhere @suppress include("NonObstacle.jl")
 
 @everywhere function waveSpeed(x, y)
     r = sqrt((x-0.5)^2 + (y-0.2)^2);
@@ -12,15 +13,22 @@ end
     v = (sqrt((x+0.4)^2 + (y+0.3)^2));
     return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] - 0.2 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
 end
-numberOfSensor = 10;
+################################################################################
+T = Dict();tic();
+# data generation
+################################################################################
+numberOfSensor = 20;
 numberOfDirect = 100;
 timeStep       = 5e-2;
 
 m = ScatterRelation(waveSpeed, gradWaveSpeed, numberOfSensor,
  numberOfDirect, timeStep)
 target = reshape(m[:,5:8]', 4 * numberOfSensor * numberOfDirect, );
-
-N = 60; ext = 2;
+################################################################################
+T["datagen"] = toq();tic();
+# settings
+################################################################################
+N = 60; ext = 1.5;
 p = linspace(-ext,ext, N); h = p[2] - p[1];
 c = zeros(N, N);
 c0 = zeros(N, N);
@@ -33,9 +41,12 @@ rejection  = 5e-2;
 decay      = 10;
 iteration  = 0;
 rankThres  = 12;
-
-Idx = zeros(N^2);
-Ldx = zeros(N^2);
+################################################################################
+T["setting"] = toq();tic();
+# setting initial guess
+################################################################################
+Idx = zeros(N^2); # interior index
+Ldx = zeros(N^2); # local variable index, Idx ⊂ Ldx.
 for i = 1:N
     for j=1:N
         c[i,j] = waveSpeed(p[i],p[j]);
@@ -44,15 +55,23 @@ for i = 1:N
         end
         if p[i]^2 + p[j]^2 <= (1+2*h)^2 # interior
             Idx[i + (j-1)*N] = 1;
-            c0[i, j] = c[i,j] - 0.1;
+            c0[i, j] = c[i,j] - 0.1; # fill interior with some guessed data.
         else
             c0[i, j] = c[i,j]; # fill exterior with known medium.
         end
     end
 end
 Ldx = find(Ldx);
-Idx = find(Idx); gc();
-
+Idx = find(Idx);
+mask = zeros(N^2);mask[Ldx] = 1.;
+@everywhere gc(); # gc before going into main loop.
+################################################################################
+cmap = PyPlot.cm[:jet];
+cmap[:set_bad]("white",1.);
+show();ion();
+T["initial"] = toq(); tic();
+# main loop
+################################################################################
 while true
     tic();
     M, observation = ScatterForwardOperator(c0, m, ext, timeStep); # time complexity is O(N^2).
@@ -101,10 +120,20 @@ while true
     print(@sprintf("%6d\t%6.2d\t%10.2e\t%10.2e\t%6.2f\t%6.2f\t%6.2f\t%6.2f\n", iteration, sum(fidelty), objective , error, t_forward, t_dof, t_solv, t_fid));
 
     iteration += 1;
-    if iteration >= 20
+    if iteration >= 50 || objective < 1e-2 # when scatter relation has been recovered, iteration stops.
         break;
     end
-    @everywhere gc()
+    z = reshape(c - c0,N^2,);z = reshape(z .* mask,N,N);
+    @suppress clf();imshow(log10(abs(z)), extent = [p[1], p[N],p[1],p[N]],
+    interpolation="bilinear", cmap = cmap);colorbar();draw();
+
+    @everywhere gc();
 end
-using PyPlot
-imshow((c0-c));colorbar();show();
+################################################################################
+T["solving"] = toq();
+for el in T
+    print(@sprintf("%8s: %6.2f s\n", el[1], el[2]));
+end
+@everywhere gc();
+# post-processing.(save, figure, etc.)
+################################################################################
