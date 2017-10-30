@@ -1,29 +1,55 @@
-function adaptive_scatter_demo()
+% function adaptive_scatter_demo(coef)
     % generation of data
-    r = @(x,y)(sqrt((x-0.3).^2 + (y-0.3).^2));
-    v = @(x,y)(sqrt((x+0.2).^2 + (y+0.2).^2));
+    r = @(x,y)(sqrt((x-0.2).^2 + (y-0.2).^2));
+    v = @(x,y)(sqrt((x+0.3).^2 + (y+0.3).^2));
     
-    waveSpeed     = @(x, y)(1 + 0.4 * sin(pi * r(x,y)) - 0.2 * sin(pi*v(x,y)));
-    gradWaveSpeed = @(x, y)(0.4 * pi * cos(pi* r(x,y)) * [(x-0.3)./r(x,y)  (y-0.3)./r(x,y)] -...
-        0.2 * pi * cos(pi * v(x,y)) * [(x+0.2)./v(x,y) (y+0.2)./v(x,y)]  );
+    waveSpeed     = @(x, y)(1 + 0.5 * sin(pi * r(x,y)) + 0.5 * sin(pi*v(x,y)));
+    gradWaveSpeed = @(x, y)(0.5 * pi * cos(pi* r(x,y)) * [(x-0.2)./r(x,y)  (y-0.2)./r(x,y)] -...
+        0.5 * pi * cos(pi * v(x,y)) * [(x+0.3)./v(x,y) (y+0.3)./v(x,y)]  );
+%     r = @(x,y)(sqrt((x-0.5).^2 + (y-0.2).^2));
+%     waveSpeed     = @(x, y)(1 + 0.2 * sin(1.5 * pi * r(x,y)));
+%     gradWaveSpeed = @(x, y)(0.2 * 1.5 * pi * cos(1.5 * pi* r(x,y)) * [(x-0.5)./r(x,y)  (y-0.2)./r(x,y)]);
+    ob = @(x,y)(x^2 + y^2 - 0.25);
+    gob = @(x, y)([x ,y]/sqrt(x^2+y^2));
 
-    numberOfSource = 100; 
+    numberOfSource = 20; 
     numberOfAngle  = 100;
     
-    measurements = scatter_relation(waveSpeed, gradWaveSpeed, numberOfSource, numberOfAngle);
+    measurements = scatter_relation(waveSpeed, gradWaveSpeed, numberOfSource, numberOfAngle);drawnow;
     target       = reshape(measurements(:, 5:8), size(measurements,1)*4, 1); 
     
     % settings of domain
-    ext = 2; N = 80;
+    ext = 12; N = 240;
     [y, x] = meshgrid(linspace(-ext, ext, N)); 
     dx     = 2 * ext / (N - 1);
     
     % settings of initial guess
-    currentWaveSpeed = @(x, y)(0.2 + 0. * x);
+%     currentWaveSpeed = @(x, y)(0.2 + 0. * x);
+% 
+%     c0 = currentWaveSpeed(x, y);
+%%
+    z = [x(:) y(:)];
+    d = size(z, 1);
+    m = 5;
+    R = zeros(d, (m+1)*(m+2)/2);
+    
+    col = 0;
+    for s = 0:m
+        for i = 0:s
+            j = s - i;
+            col = col + 1;
+            % x^i y^j
+            for k = 1:d
+                R(k, col) = z(k, 1)^i * z(k,2)^j;
+            end     
+        end
+    end
 
-    c0 = currentWaveSpeed(x, y);
+    c0 = reshape(R*coef, N, N);
+    %%
     dc = waveSpeed(x,y) - c0;
     c  = c0 + dc;
+    
 
     % All interior index
     ind = (x.^2 + y.^2 <= 1 + 4*dx);
@@ -51,8 +77,9 @@ function adaptive_scatter_demo()
         
         % sort the dofs, getting the permutation.
         [~, perm] = sort(dofs); 
+        
 
-        rayInd = find(dofs(perm) <= 12,1,'last');
+        rayInd = find(dofs(perm) <= 20,1,'last');
         order  = perm(1:rayInd);
         order  = reshape([4 * order - 3 4 * order - 2 4 * order - 1 4 * order]', size(order, 1) * 4, 1);
 
@@ -66,8 +93,8 @@ function adaptive_scatter_demo()
         tic;
         correction(ind) = (Mi'*Mi + alpha * reg(ind, ind))\(Mi'*mismatch(order));
         t = toc;
-
-        residue   = abs(Mi * correction(ind) - mismatch(order)./target(order));
+        % might be good to take some better way to compare vectors.
+        residue   = abs(Mi * correction(ind) - mismatch(order));
         
         % setting tentative fidelity using knowledge of mismatch.
         %
@@ -106,10 +133,10 @@ function adaptive_scatter_demo()
         % output.
         fprintf('%6d \t %6d \t %2.2e \t %2.2e \t %4.4f s \t %4.4f s\n', iter, sum(find(fidelity)~=0),norm(mismatch)/norm(measurements(:,5:8)) ,err, cputime, t);
 
-        fh = figure;
+%%         fh = figure;
         set(gcf,'pos',[200 200 1000 800])
         subplot(2,2,1);
-        surf(x,y, abs(reshape(correction, N,N)+c0-c)./c.*log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0));shading interp;colorbar;view(2);colormap jet;  
+        surf(x,y, abs(reshape(correction, N,N)+c0-c)./c.*log10((sqrt(x.^2 + y.^2) <=1)*10).*log10((sqrt(x.^2 + y.^2) >=0.5)*10));shading interp;colorbar;view(2);colormap jet;  
         title('relative error');
         subplot(2,2,2);
         surf(x,y, (reshape(fidelity, N,N)).*log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0), 'EdgeColor', 'none');colorbar;view(2);colormap jet;
@@ -120,13 +147,13 @@ function adaptive_scatter_demo()
         subplot(2,2,4);
         surf(x,y, ((reshape(correction, N,N)+c0  ).* log10((sqrt(x.^2 + y.^2) <= 1)*10 + (sqrt(x.^2 + y.^2) > 1).*0)));shading interp;colorbar;view(2);colormap jet;
         title('recovered speed');  drawnow;
-
-        print(fh, '-dpng', '-r0', sprintf('%d.png', iter));
-        close(fh);
+%%
+%         print(fh, '-dpng', '-r0', sprintf('%d.png', iter));
+%         close(fh);
 
         % stop criteria.
         if err < 1e-2 || iter > 50
             break;
         end
     end
-end
+% end

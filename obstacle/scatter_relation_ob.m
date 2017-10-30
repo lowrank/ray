@@ -1,19 +1,7 @@
-%SCATTER_RELATION calculates scatter relation by solving Hamiltonian.
-% input variables:
-%
-% c  : isotropic velocity handle
-% gc : gradient of c, row vector. 1 x 2 vector.
-% ns : number of sources.
-% nd : number of directions.
-% sc : optional, scatterer function.
-%
-% output variables:
-%
-% m  : scatter relation, each row includes [Xs, Xr, t]
-
-function [m] = scatter_relation(c, gc, ns, nd)
+%SCATTER_RELATION_OB 
+function [m] = scatter_relation_ob( c, gc, ns, nd, ob, gob)
     INPUT = 1:4; 
-    dt = 5e-2;
+    dt = 1e-2;
     m = zeros(ns * nd, 4);
     o = zeros(ns * nd, 5);
     s = linspace(0, 2 * pi, ns + 1); s(end)=[];
@@ -27,15 +15,18 @@ function [m] = scatter_relation(c, gc, ns, nd)
             m((i - 1) * nd + j, INPUT) =  [loc(:, i)' v];
         end
     end
-    
+            
+    % driver.
     F = @(X)([c(X(1), X(2))^2 * X(3:4)   -(X(3:4)*X(3:4)') * gc(X(1), X(2)) * c(X(1), X(2)) ]);
     figure;
     for i = 1:ns * nd
+        % expand each ray.
         X = m(i, INPUT);
-        t = 0; 
+        t = 0;
         res = [X(1:2)'];
+        rf = 0;
         while true
-            % RK4     
+            % RK4            
             k1 = F(X) * dt;
             k2 = F(X + k1/2) * dt;
             k3 = F(X + k2/2) * dt;
@@ -43,8 +34,17 @@ function [m] = scatter_relation(c, gc, ns, nd)
             X = X + (k1 + 2*k2 + 2*k3 + k4)/6.0;
             t = t + dt;
             if X(1:2) * X(1:2)' >= 1
-                break;
+                break; %out.
             end
+            
+            % if in obstacle or on obstacle, this should be handled
+            % carefully. 
+            if ob(X(1), X(2)) <= 0 && ~rf
+                n = gob(X(1), X(2)); % outward unit col vector
+                X(3:4) = X(3:4) * (eye(2) - 2 * (n'*n));
+                rf = 1;
+            end
+            
             res = [res X(1:2)'];
         end
         plot(res(1,:), res(2,:));
