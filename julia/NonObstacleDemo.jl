@@ -17,9 +17,9 @@ end
 T = Dict();tic();
 # data generation
 ################################################################################
-numberOfSensor = 20;
+numberOfSensor = 100;
 numberOfDirect = 100;
-timeStep       = 5e-2;
+timeStep       = 5e-2; # caution small timestep needs more time
 
 m = ScatterRelation(waveSpeed, gradWaveSpeed, numberOfSensor,
  numberOfDirect, timeStep)
@@ -28,19 +28,20 @@ target = reshape(m[:,5:8]', 4 * numberOfSensor * numberOfDirect, );
 T["datagen"] = toq();tic();
 # settings
 ################################################################################
-N = 60; ext = 1.5;
-p = linspace(-ext,ext, N); h = p[2] - p[1];
-c = zeros(N, N);
-c0 = zeros(N, N);
-correction = zeros(N^2, );
-penalty    = 5e-1;
-regularize = regularization(h, N);
-fidelty    = zeros(N^2, );
-dofs       = zeros(numberOfSensor * numberOfDirect , );
-rejection  = 5e-2;
-decay      = 10;
-iteration  = 0;
-rankThres  = 12;
+N = 60; ext = 1.5; # domain
+penalty    = 5e-1; # regularization param
+rejection  = 5e-2; # fidelity rejection rate
+decay      = 10;   # fidelity heristic decay
+iteration  = 0;    # iteration number
+rankThres  = 12;   # acceptable rays
+p          = linspace(-ext,ext, N);
+h          = p[2] - p[1];
+c          = zeros(N, N);  # true wave speed
+c0         = zeros(N, N);  # recovered wave speed
+correction = zeros(N^2);   # correction vector
+regularize = regularization(h, N); # regularization matrix.
+fidelty    = zeros(N^2);   # fidelity vector.
+dofs       = zeros(numberOfSensor * numberOfDirect); # ranks of rays.
 ################################################################################
 T["setting"] = toq();tic();
 # setting initial guess
@@ -55,7 +56,6 @@ for i = 1:N
         end
         if p[i]^2 + p[j]^2 <= (1+2*h)^2 # interior
             Idx[i + (j-1)*N] = 1;
-            c0[i, j] = c[i,j] - 0.1; # fill interior with some guessed data.
         else
             c0[i, j] = c[i,j]; # fill exterior with known medium.
         end
@@ -63,12 +63,15 @@ for i = 1:N
 end
 Ldx = find(Ldx);
 Idx = find(Idx);
-mask = zeros(N^2);mask[Ldx] = 1.;
+
+c0 = interpolation(regularize, c0, Idx, N);
+
+mask = NaN*ones(N^2);mask[Ldx] = 0.;mask = reshape(mask, N,N); #NaN mask
 @everywhere gc(); # gc before going into main loop.
 ################################################################################
 cmap = PyPlot.cm[:jet];
 cmap[:set_bad]("white",1.);
-show();ion();
+show();ion();fig = figure(figsize=(10,8));
 T["initial"] = toq(); tic();
 # main loop
 ################################################################################
@@ -123,9 +126,29 @@ while true
     if iteration >= 50 || objective < 1e-2 # when scatter relation has been recovered, iteration stops.
         break;
     end
-    z = reshape(c - c0,N^2,);z = reshape(z .* mask,N,N);
-    @suppress clf();imshow(log10(abs(z)), extent = [p[1], p[N],p[1],p[N]],
-    interpolation="bilinear", cmap = cmap);colorbar();draw();
+
+    clf();
+    ax = subplot("221");
+    ax[:set_title]("error of speed");
+    z = c-c0;z += mask;
+    imshow(z, extent = [p[1], p[N],p[1],p[N]],
+    interpolation="bilinear", cmap = cmap);colorbar();
+    ax = subplot("222");
+    ax[:set_title]("auxiliary fidelity");
+    z = reshape(fidelty,N,N);z += mask;
+    imshow(z, extent = [p[1], p[N],p[1],p[N]],
+    interpolation="none", cmap = cmap);colorbar();
+    ax = subplot("223");
+    ax[:set_title]("true speed");
+    z = c;z += mask;
+    imshow(z, extent = [p[1], p[N],p[1],p[N]],
+    interpolation="bilinear", cmap = cmap);colorbar();
+    ax = subplot("224");
+    ax[:set_title]("recovered speed");
+    z = c0;z += mask;
+    imshow(z, extent = [p[1], p[N],p[1],p[N]],
+    interpolation="bilinear", cmap = cmap);colorbar();
+    draw();
 
     @everywhere gc();
 end

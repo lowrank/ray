@@ -130,6 +130,13 @@ end
             ρ += (v1 + 2*v2 + 2*v3 + v4)*dt/6.0;
             Θ =  inv(ρ) * ∂V(X, eval, grad, p) * dt/2;
             Φ += Θ;
+            # when X is outside of extended physical domain, directly cease the ray.
+            if (norm(X[1:2]) > 1 + 2*(p[2]-p[1]))
+                Θ = inv(ρ) * ∂V(X, eval, grad, p) * (T[i] - t);
+                Φ += Θ;
+                t += (T[i] - t);
+            end
+
         end
         M[(4 * i -3): 4 * (i), :] = ρ*Φ;
         s[i, 5:8] = X;
@@ -221,4 +228,11 @@ end
     gradientX = sparse(xI, xJ, xV, N^2, N^2);
     gradientY = sparse(yI, yJ, yV, N^2, N^2);
     r = (gradientX'*gradientX + gradientY'*gradientY);
+end
+
+@fastmath function interpolation(R, c0, Idx, N)
+    z = reshape(c0, N^2);
+    b = -R * z;
+    z[Idx] = R[Idx, Idx]\b[Idx];
+    return reshape(z, N,N);
 end
