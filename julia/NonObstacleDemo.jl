@@ -6,18 +6,18 @@ using PyPlot
 @everywhere function waveSpeed(x, y)
     r = sqrt((x-0.5)^2 + (y-0.2)^2);
     v = sqrt((x+0.4)^2 + (y+0.3)^2);
-    return 1 + 0.4 * sin(pi * r) - 0.2 * sin(pi * v)
+    return 1 + 0.4 * sin(pi * r) - 0.4 * sin(pi * v)
 end
 @everywhere function gradWaveSpeed(x, y)
     r = (sqrt((x-0.5)^2 + (y-0.2)^2));
     v = (sqrt((x+0.4)^2 + (y+0.3)^2));
-    return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] - 0.2 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
+    return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] - 0.4 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
 end
 ################################################################################
 T = Dict();tic();
 # data generation
 ################################################################################
-numberOfSensor = 100;
+numberOfSensor = 20;
 numberOfDirect = 100;
 timeStep       = 5e-2; # caution small timestep needs more time
 
@@ -28,13 +28,15 @@ target = reshape(m[:,5:8]', 4 * numberOfSensor * numberOfDirect, );
 T["datagen"] = toq();tic();
 # settings
 ################################################################################
-N = 60; ext = 1.5; # domain
+N = 40; ext = 1.5; # domain
 penalty    = 5e-1; # regularization param
 rejection  = 5e-2; # fidelity rejection rate
 decay      = 10;   # fidelity heristic decay
 iteration  = 0;    # iteration number
 rankThres  = 12;   # acceptable rays
 p          = linspace(-ext,ext, N);
+hi         = searchsortedfirst(p, 1.0);
+lo         = searchsortedlast(p, -1.0);
 h          = p[2] - p[1];
 c          = zeros(N, N);  # true wave speed
 c0         = zeros(N, N);  # recovered wave speed
@@ -131,22 +133,22 @@ while true
     ax = subplot("221");
     ax[:set_title]("error of speed");
     z = c-c0;z += mask;
-    imshow(z, extent = [p[1], p[N],p[1],p[N]],
+    imshow(z[lo:hi, lo:hi], extent = [p[lo], p[hi],p[lo],p[hi]],
     interpolation="bilinear", cmap = cmap);colorbar();
     ax = subplot("222");
     ax[:set_title]("auxiliary fidelity");
     z = reshape(fidelty,N,N);z += mask;
-    imshow(z, extent = [p[1], p[N],p[1],p[N]],
+    imshow(z[lo:hi, lo:hi], extent = [p[lo], p[hi],p[lo],p[hi]],
     interpolation="none", cmap = cmap);colorbar();
     ax = subplot("223");
     ax[:set_title]("true speed");
     z = c;z += mask;
-    imshow(z, extent = [p[1], p[N],p[1],p[N]],
+    imshow(z[lo:hi, lo:hi], extent = [p[lo], p[hi],p[lo],p[hi]],
     interpolation="bilinear", cmap = cmap);colorbar();
     ax = subplot("224");
     ax[:set_title]("recovered speed");
     z = c0;z += mask;
-    imshow(z, extent = [p[1], p[N],p[1],p[N]],
+    imshow(z[lo:hi, lo:hi], extent = [p[lo], p[hi],p[lo],p[hi]],
     interpolation="bilinear", cmap = cmap);colorbar();
     draw();
 
