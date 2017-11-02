@@ -6,29 +6,29 @@ using PyPlot
 @everywhere function waveSpeed(x, y)
     r = sqrt((x-0.5)^2 + (y-0.2)^2);
     v = sqrt((x+0.4)^2 + (y+0.3)^2);
-    return 1 + 0.4 * sin(pi * r) - 0.4 * sin(pi * v)
+    return 1 + 0.4 * sin(pi * r) + 0.4 * sin(pi * v)
 end
 @everywhere function gradWaveSpeed(x, y)
     r = (sqrt((x-0.5)^2 + (y-0.2)^2));
     v = (sqrt((x+0.4)^2 + (y+0.3)^2));
-    return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] - 0.4 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
+    return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] + 0.4 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
 end
 ################################################################################
 T = Dict();tic();
 # data generation
 ################################################################################
-numberOfSensor = 20;
+numberOfSensor = 100;
 numberOfDirect = 100;
 timeStep       = 5e-2; # caution small timestep needs more time
 
 m = ScatterRelation(waveSpeed, gradWaveSpeed, numberOfSensor,
- numberOfDirect, timeStep)
+ numberOfDirect, timeStep, (0,2* pi/3))
 target = reshape(m[:,5:8]', 4 * numberOfSensor * numberOfDirect, );
 ################################################################################
 T["datagen"] = toq();tic();
 # settings
 ################################################################################
-N = 40; ext = 1.5; # domain
+N = 60; ext = 1.5; # domain
 penalty    = 5e-1; # regularization param
 rejection  = 5e-2; # fidelity rejection rate
 decay      = 10;   # fidelity heristic decay

@@ -29,9 +29,9 @@ end
     M = [2 * c * X[3:4] * g' c^2*eye(2); -(c*h + g*g') * τ  -2*c * g*X[3:4]'];
 end
 
-@everywhere @fastmath function ScatterRelation(c, ∇c, ns, nd, dt)
+@everywhere @fastmath function ScatterRelation(c, ∇c, ns, nd, dt, dir=[0,pi])
     source = linspace(0, 2 * pi, ns + 1); source = source[1:ns];
-    direct = linspace(0, pi, nd + 2); direct = direct[2:nd+1];
+    direct = linspace(dir[1], dir[2], nd + 2); direct = direct[2:nd+1];
     sensor = [cos.(source) sin.(source)];
     m = SharedArray{Float64}((ns * nd, 9));
     @inbounds @sync @parallel for i = 1:ns
