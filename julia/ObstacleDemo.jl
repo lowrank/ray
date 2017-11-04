@@ -2,35 +2,59 @@ addprocs(3)
 using PyPlot
 @everywhere using Suppressor
 @everywhere @suppress include("NonObstacle.jl")
+@everywhere @suppress include("Utility.jl")
+@everywhere @suppress include("Obstacle.jl")
+
+
 
 @everywhere function waveSpeed(x, y)
     r = sqrt((x-0.5)^2 + (y-0.2)^2);
     v = sqrt((x+0.4)^2 + (y+0.3)^2);
-    u = sqrt((x-0.3)^2 + (y+0.4)^2);
-    w = sqrt((x+0.2)^2 + (y-0.1)^2);
-    return 1.0 + 0.2 * sin(pi * r) + 0.4 * sin( pi * v) + 0.2 * sin(pi * u) + 0.3 * sin(pi * w);
+    return 1 + 0.4 * sin(pi * r) + 0.4 * sin(pi * v);
 end
 @everywhere function gradWaveSpeed(x, y)
     r = (sqrt((x-0.5)^2 + (y-0.2)^2));
     v = (sqrt((x+0.4)^2 + (y+0.3)^2));
-    u = sqrt((x-0.3)^2 + (y+0.4)^2);
-    w = sqrt((x+0.2)^2 + (y-0.1)^2);
-    return 0.2 *  pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] +
-     0.4 *  pi * cos(pi * v)/v * [(x+0.4), (y+0.3)] +
-     0.2 *  pi * cos(pi * u)/u * [(x-0.3), (y+0.4)] +
-     0.3 *  pi * cos(pi * w)/w * [(x+0.2), (y-0.1)];
+    return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] + 0.4 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
 end
-################################################################################
+@everywhere function obstacle(x, y)
+    θ = atan2(x,y);
+    r = sqrt(x^2 + y^2);
+    return r - (0.25 + 0.05 * sin(3 * θ));
+end
+@everywhere function gradObstacle(x, y)
+    θ =  atan2(x,y);
+    r =  sqrt(x^2 + y^2);
+    n =  [x, y]/r + 0.15 * cos(3 * θ)/r * [-y, x]/r;
+    return n/norm(n);
+end
 T = Dict();tic();
-# data generation
-################################################################################
 numberOfSensor = 50;
-numberOfDirect = 100;
+numberOfDirect = 300;
 timeStep       = 5e-2; # caution small timestep needs more time
+m = ScatterRelationObstacle(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
+ numberOfDirect, timeStep)
 
-m = ScatterRelation(waveSpeed, gradWaveSpeed, numberOfSensor,
- numberOfDirect, timeStep, (0,pi))
-target = reshape(m[:,5:8]', 4 * numberOfSensor * numberOfDirect, );
+# #filter all rays: orthogonally hitting.
+# rayIndex =filter(I-T = Dict();tic();>similarity(m[I,1:2], m[I,5:6]) > 0.995 &&
+#  similarity(m[I,3:4],m[I,7:8]) <-0.995, 1:size(m,1))
+
+unbrokenRays = [];
+for sIdx = 1:numberOfSensor
+    arg = atan2(m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 6],
+     m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 5]);
+    arg = alignment(arg); # alignment to remove false jumps.
+    (lo, hi) = derivativeCheck(arg);
+    append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + 1:(sIdx - 1) * numberOfDirect + lo));
+    append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + hi:(sIdx) * numberOfDirect));
+end
+
+m[:, 9] *= timeStep;
+m = m[unbrokenRays,:]; # take all unbroken rays.
+ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
+ numberOfDirect, timeStep, unbrokenRays);
+
+target = reshape(m[:,5:8]', 4 * size(m,1), );
 ################################################################################
 T["datagen"] = toq();tic();
 # settings
@@ -50,7 +74,7 @@ c0         = zeros(N, N);  # recovered wave speed
 correction = zeros(N^2);   # correction vector
 regularize = regularization(h, N); # regularization matrix.
 fidelty    = zeros(N^2);   # fidelity vector.
-dofs       = zeros(numberOfSensor * numberOfDirect); # ranks of rays.
+dofs       = zeros(size(m,1)); # ranks of rays.
 ################################################################################
 T["setting"] = toq();tic();
 # setting initial guess
@@ -89,11 +113,11 @@ while true
     M, observation = ScatterForwardOperator(c0, m, ext, timeStep); # time complexity is O(N^2).
     t_forward = toq();
 
-    mismatch = reshape(m[:, 5:8]' - observation[:,5:8]', 4 * numberOfDirect * numberOfSensor, ); # vector
+    mismatch = reshape(m[:, 5:8]' - observation[:,5:8]', 4 * size(m,1), ); # vector
 
     # approximation of rank.
     tic();
-    Threads.@threads for j = 1:numberOfSensor * numberOfDirect
+    Threads.@threads for j = 1:size(m,1)
         dofs[j] = nnz(M[4 * j - 3, :]) - sum(fidelty[find(M[4 * j - 3, :])]);
     end
     t_dof = toq();
@@ -169,3 +193,5 @@ end
 @everywhere gc();
 # post-processing.(save, figure, etc.)
 ################################################################################
+NonReflectionPlot(c0, m, ext, timeStep);
+pause(20);
