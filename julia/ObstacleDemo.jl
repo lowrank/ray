@@ -5,8 +5,6 @@ using PyPlot
 @everywhere @suppress include("Utility.jl")
 @everywhere @suppress include("Obstacle.jl")
 
-
-
 @everywhere function waveSpeed(x, y)
     r = sqrt((x-0.5)^2 + (y-0.2)^2);
     v = sqrt((x+0.4)^2 + (y+0.3)^2);
@@ -28,9 +26,12 @@ end
     n =  [x, y]/r + 0.15 * cos(3 * θ)/r * [-y, x]/r;
     return n/norm(n);
 end
+
+################################################################################
+
 T = Dict();tic();
-numberOfSensor = 50;
-numberOfDirect = 300;
+numberOfSensor = 100; # number of sensors placed on boundary.
+numberOfDirect = 300; # number of rays emitted, more rays are needed for obstacle case.
 timeStep       = 5e-2; # caution small timestep needs more time
 m = ScatterRelationObstacle(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
  numberOfDirect, timeStep)
@@ -48,6 +49,25 @@ for sIdx = 1:numberOfSensor
     append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + 1:(sIdx - 1) * numberOfDirect + lo));
     append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + hi:(sIdx) * numberOfDirect));
 end
+
+# sIdx = 12
+# unbrokenRays = [];
+# arg = atan2(m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 6],
+#  m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 5]);
+# arg = alignment(arg); # alignment to remove false jumps.
+# plot(arg)
+# n=length(arg);
+# q=(arg[2:n]-arg[1:n-1])
+# q[13]*q[14]
+# q[13]
+# q[14]
+# plot(q)
+# (lo, hi) = derivativeCheck(arg);
+# @show(lo,hi)
+# append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + 1:(sIdx - 1) * numberOfDirect + lo));
+# append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + hi:(sIdx) * numberOfDirect));
+# ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
+#  numberOfDirect, timeStep, unbrokenRays);
 
 m[:, 9] *= timeStep;
 m = m[unbrokenRays,:]; # take all unbroken rays.

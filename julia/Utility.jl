@@ -18,13 +18,13 @@ function derivativeCheck(signal)
 
     lo = 1;hi = n;
     for i = 1:n-2
-        if (deriv[i] * deriv[i+1] < 0 || abs(deriv[i]) < 5e-2) && abs(deriv[i+1]) > 1.5* abs(deriv[i])
+        if (deriv[i] * deriv[i+1] < 0)
             lo = i ;
             break;
         end
     end
     for i = n-1:-1:2
-        if (deriv[i] * deriv[i-1] < 0 || abs(deriv[i]) < 5e-2) && abs(deriv[i-1]) > 1.5* abs(deriv[i])
+        if (deriv[i] * deriv[i-1] < 0)
             hi = i+1;
             break;
         end
