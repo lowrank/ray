@@ -387,4 +387,31 @@ function NonObstacleReconstruction(m, N, ext, penalty, rejectiom, decay,
         print(@sprintf("%8s: %6.2f s\n", el[1], el[2]));
     end
     @everywhere gc();
+
+
+    clf();
+    ax = subplot("221");
+    ax[:set_title]("error of speed");
+    z = c-c0;z += mask;
+    imshow(z[lo:hi, lo:hi], extent = [p[lo], p[hi],p[lo],p[hi]],
+    interpolation="bilinear", cmap = cmap);colorbar();
+    ax = subplot("222");
+    ax[:set_title]("auxiliary fidelity");
+    z = reshape(fidelty,N,N);z += mask;
+    imshow(z[lo:hi, lo:hi], extent = [p[lo], p[hi],p[lo],p[hi]],
+    interpolation="none", cmap = cmap);colorbar();
+    ax = subplot("223");
+    ax[:set_title]("true speed");
+    z = c;z += mask;
+    imshow(z[lo:hi, lo:hi], extent = [p[lo], p[hi],p[lo],p[hi]],
+    interpolation="bilinear", cmap = cmap);colorbar();
+    ax = subplot("224");
+    ax[:set_title]("recovered speed");
+    z = c0;z += mask;
+    imshow(z[lo:hi, lo:hi], extent = [p[lo], p[hi],p[lo],p[hi]],
+    interpolation="bilinear", cmap = cmap);colorbar();
+    draw();
+    @show();
+
+
 end

@@ -249,7 +249,6 @@ end
     end
 
     T = m[:, 9];
-    M = SharedArray{Float64}((4 * num, N^2));
 
     for i =1:num
         X = m[i, 1:4]; #vector.
@@ -272,4 +271,59 @@ end
         axes()[:set_aspect]("equal","datalim");
     end
     show();
+end
+@everywhere @fastmath function NonReflectionTrace(c, m, ext, dt)
+    N = size(c, 1); num = size(m, 1);
+    p = linspace(-ext, ext, N); dx = 2 * ext / (N-1);
+    eval = SharedArray{Float64}((N-1, N-1, 4));
+    grad = SharedArray{Float64}((N-2, N-2, 8));
+    hess = SharedArray{Float64}((N-3, N-3, 12));
+
+    # simple loops do not need parallel, extra costs.
+    @inbounds for I = 1:N-1
+       @inbounds for J=1:N-1
+            eval[I,J, :] = Q4(c, I, J, dx);
+        end
+    end
+
+    @inbounds for I = 2:N-2
+       @inbounds for J=2:N-2
+            grad[I,J, 1:4] = (eval[I+1,J,:] - eval[I-1,J,:])/(2*dx);
+            grad[I,J, 5:8] = (eval[I,J+1,:] - eval[I,J-1,:])/(2*dx);
+        end
+    end
+
+    @inbounds for I = 3:N-3
+       @inbounds for J=3:N-3
+            hess[I,J, 1:4]  = (grad[I+1,J,1:4] - grad[I-1,J,1:4])/(2*dx);
+            hess[I,J, 5:8]  = (grad[I,J+1,1:4] - grad[I,J-1,1:4])/(2*dx);
+            hess[I,J, 9:12] = (grad[I,J+1,5:8] - grad[I,J-1,5:8])/(2*dx);
+        end
+    end
+
+    T = m[:, 9];
+
+    for i =1:num
+        X = m[i, 1:4]; #vector.
+        t =  0;
+        # res = X[1:2];
+        @inbounds while (t < T[i]) # one optimization is fixing I,J during each step.
+            t = t + dt;
+            k1 = DiscreteHamilton(X             , eval, grad, p); # k = z, I,J, c, gcx, gcy, h
+            k2 = DiscreteHamilton(X + k1[7]/2*dt, eval, grad, p);
+            k3 = DiscreteHamilton(X + k2[7]/2*dt, eval, grad, p);
+            k4 = DiscreteHamilton(X + k3[7]*dt  , eval, grad, p);
+
+            X += (k1[7] + 2*k2[7] + 2*k3[7] + k4[7])*dt/6.0;
+            # when X is outside of extended physical domain, directly cease the ray.
+            # res = [res X[1:2]]
+        end
+        # plot(res[1,:], res[2,:]);
+        # xlabel("x");ylabel("y");
+        # title("non-reflected rays");
+        # axes()[:set_aspect]("equal","datalim");
+        m[i,5:8] = X;
+    end
+    # show();
+    m
 end

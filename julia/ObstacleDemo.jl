@@ -18,63 +18,64 @@ end
 @everywhere function obstacle(x, y)
     θ = atan2(x,y);
     r = sqrt(x^2 + y^2);
-    return r - (0.25 + 0.05 * sin(3 * θ));
+    ρ = 0.2;
+    return r - (0.4 + ρ* sin(3 * θ));
 end
 @everywhere function gradObstacle(x, y)
     θ =  atan2(x,y);
     r =  sqrt(x^2 + y^2);
-    n =  [x, y]/r + 0.15 * cos(3 * θ)/r * [-y, x]/r;
+    ρ = 0.2;
+    n =  [x, y]/r + 3 * ρ * cos(3 * θ)/r * [-y, x]/r;
     return n/norm(n);
 end
 
 ################################################################################
 
 T = Dict();tic();
-numberOfSensor = 100; # number of sensors placed on boundary.
+numberOfSensor = 50; # number of sensors placed on boundary.
 numberOfDirect = 300; # number of rays emitted, more rays are needed for obstacle case.
 timeStep       = 5e-2; # caution small timestep needs more time
 m = ScatterRelationObstacle(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
  numberOfDirect, timeStep)
+################################################################################
 
-# #filter all rays: orthogonally hitting.
-# rayIndex =filter(I-T = Dict();tic();>similarity(m[I,1:2], m[I,5:6]) > 0.995 &&
-#  similarity(m[I,3:4],m[I,7:8]) <-0.995, 1:size(m,1))
+#filter all rays: orthogonally hitting.
+orthoIndex =filter(I->similarity(m[I,1:2], m[I,5:6]) > 0.995 &&
+ similarity(m[I,3:4],m[I,7:8]) <-0.995, 1:size(m,1))
+
+if length(orthoIndex) > 0
+    print("reflection detected.\n");
+end
 
 unbrokenRays = [];
-for sIdx = 1:numberOfSensor
+unbrokenRaysBound=[];
+
+for sIdx =1:numberOfSensor
     arg = atan2(m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 6],
      m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 5]);
     arg = alignment(arg); # alignment to remove false jumps.
     (lo, hi) = derivativeCheck(arg);
     append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + 1:(sIdx - 1) * numberOfDirect + lo));
     append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + hi:(sIdx) * numberOfDirect));
+    append!(unbrokenRaysBound, (sIdx - 1) * numberOfDirect + lo);
+    append!(unbrokenRaysBound, (sIdx - 1) * numberOfDirect + hi);
 end
 
-# sIdx = 12
-# unbrokenRays = [];
-# arg = atan2(m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 6],
-#  m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 5]);
-# arg = alignment(arg); # alignment to remove false jumps.
-# plot(arg)
-# n=length(arg);
-# q=(arg[2:n]-arg[1:n-1])
-# q[13]*q[14]
-# q[13]
-# q[14]
-# plot(q)
-# (lo, hi) = derivativeCheck(arg);
-# @show(lo,hi)
-# append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + 1:(sIdx - 1) * numberOfDirect + lo));
-# append!(unbrokenRays, collect((sIdx - 1) * numberOfDirect + hi:(sIdx) * numberOfDirect));
-# ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
-#  numberOfDirect, timeStep, unbrokenRays);
-
 m[:, 9] *= timeStep;
+s = copy(m); # a copy of data.
 m = m[unbrokenRays,:]; # take all unbroken rays.
-ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
- numberOfDirect, timeStep, unbrokenRays);
-
 target = reshape(m[:,5:8]', 4 * size(m,1), );
+################################################################################
+#=
+the plot of non-reflected rays will take a long time, it cannot be parallelized easily.
+=#
+ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
+ numberOfDirect, timeStep, orthoIndex);
+pause(20);
+ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
+  numberOfDirect, timeStep, unbrokenRaysBound);
+pause(20);
+
 ################################################################################
 T["datagen"] = toq();tic();
 # settings
@@ -101,9 +102,13 @@ T["setting"] = toq();tic();
 ################################################################################
 Idx = zeros(N^2); # interior index
 Ldx = zeros(N^2); # local variable index, Idx ⊂ Ldx.
+Edx = zeros(N^2); # effective index. Edx ⊂ Idx. rule out obstacle.
 for i = 1:N
     for j=1:N
         c[i,j] = waveSpeed(p[i],p[j]);
+        if (obstacle(p[j], p[i]) < 0)
+            Edx[i + (j-1)*N] = 1;
+        end
         if (p[i]^2 + p[j]^2 < 1)
             Ldx[i + (j-1)*N] = 1;
         else
@@ -114,12 +119,13 @@ for i = 1:N
         end
     end
 end
+Edx = find(Edx);
 Ldx = find(Ldx);
 Idx = find(Idx);
 
 c0 = interpolation(regularize, c0, Ldx, N);
-
-mask = NaN*ones(N^2);mask[Ldx] = 0.;mask = reshape(mask, N,N); #NaN mask
+Ldx = setdiff(Ldx, Edx);
+mask = NaN*ones(N^2);mask[Ldx] = 0.; mask = reshape(mask, N,N); #NaN mask
 @everywhere gc(); # gc before going into main loop.
 ################################################################################
 cmap = PyPlot.cm[:jet];
@@ -213,5 +219,27 @@ end
 @everywhere gc();
 # post-processing.(save, figure, etc.)
 ################################################################################
-NonReflectionPlot(c0, m, ext, timeStep);
+#=
+plot recovered rays.
+=#
+NonReflectionPlot(c0, s[unbrokenRaysBound,:], ext, timeStep);
+pause(30);
+################################################################################
+#=
+use all orthogonal rays.
+=#
+accurateTimeStep = 5e-3;
+m = ScatterRelationObstacle(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
+ numberOfDirect, accurateTimeStep); # use finer time step to get accurate information on reflection.
+
+orthoIndex =filter(I->similarity(m[I,1:2], m[I,5:6]) > 0.995 &&
+  similarity(m[I,3:4],m[I,7:8]) <-0.995, 1:size(m,1))
+m[:,9] *=accurateTimeStep*0.5;
+NonReflectionPlot(c0, m[orthoIndex,:], ext, accurateTimeStep);
+
+th = linspace(0, 2*pi, 300);
+r = (0.4 + 0.2* sin(3 *th));
+xx = r .* cos(th);
+yy = r .* sin(th);
+plot(yy, xx, "b--");
 pause(20);
