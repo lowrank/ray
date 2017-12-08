@@ -1,12 +1,19 @@
 Adaptive phase space method for traveltime in 2D
 --
-0. Domain is set to be unit disk.
-1. RK4 is used to solve Hamiltonian for data generation.
-2. The ending location is not precisely at boundary.
-3. For parallel use, all functions does not involve class related variable.
-4. Both adaptive and non-adaptive are implemented.
-5. Obstacle tested.
-6. Julia version done.
-7. Reflection timestamp trimmed.
-8. Orthogonal rays done.
-9. Nonbroken rays done partially due to vanishing derivatives. 
+The code computes reconstructs the isotropic wavespeed using multi-arrival time information. The domain is fixed as unit disk.
+
+The code implements the (stabilized) adaptive phase space method. Foliation is guided by fidelity function defined over the physical domain.
+
+To handle the obstacle with cavity, a hybrid method is used.
+
+To run the code for non-obstacle case.
+
+```
+julia NonObstacleDemo.jl
+```
+
+For obstacle case.
+
+```
+julia ObstacleDemo.jl
+```
