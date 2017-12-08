@@ -1,4 +1,4 @@
-addprocs(3)
+addprocs(4)
 using PyPlot
 @everywhere using Suppressor
 @everywhere @suppress include("NonObstacle.jl")
@@ -35,7 +35,7 @@ timeStep       = 5e-2; # caution small timestep needs more time
 N = 75; ext = 1.5; # domain
 penalty    = 5e-1; # regularization param
 rejection  = 5e-2; # fidelity rejection rate
-decay      = 10;   # fidelity heristic decay
+decay      = 10.0;   # fidelity heristic decay
 iteration  = 0;    # iteration number
 rankThres  = 12;   # acceptable rays
 

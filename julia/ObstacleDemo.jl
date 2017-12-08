@@ -6,14 +6,16 @@ using PyPlot
 @everywhere @suppress include("Obstacle.jl")
 
 @everywhere function waveSpeed(x, y)
-    r = sqrt((x-0.5)^2 + (y-0.2)^2);
-    v = sqrt((x+0.4)^2 + (y+0.3)^2);
-    return 1 + 0.4 * sin(pi * r) + 0.4 * sin(pi * v);
+    # r = sqrt((x-0.5)^2 + (y-0.2)^2);
+    # v = sqrt((x+0.4)^2 + (y+0.3)^2);
+    # return 1 + 0.4 * sin(pi * r) + 0.4 * sin(pi * v);
+    return 1+0.3*sin(1.5*pi*x) * sin(1.5*pi*y);
 end
 @everywhere function gradWaveSpeed(x, y)
-    r = (sqrt((x-0.5)^2 + (y-0.2)^2));
-    v = (sqrt((x+0.4)^2 + (y+0.3)^2));
-    return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] + 0.4 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
+    # r = (sqrt((x-0.5)^2 + (y-0.2)^2));
+    # v = (sqrt((x+0.4)^2 + (y+0.3)^2));
+    # return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] + 0.4 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
+    return 0.45*pi * [cos(1.5*pi*x)*sin(1.5*pi*y), sin(1.5*pi*x) * cos(1.5*pi*y)];
 end
 @everywhere function obstacle(x, y)
     θ = atan2(x,y);
@@ -32,8 +34,8 @@ end
 ################################################################################
 
 T = Dict();tic();
-numberOfSensor = 50; # number of sensors placed on boundary.
-numberOfDirect = 300; # number of rays emitted, more rays are needed for obstacle case.
+numberOfSensor = 100; # number of sensors placed on boundary.
+numberOfDirect = 200; # number of rays emitted, more rays are needed for obstacle case.
 timeStep       = 5e-2; # caution small timestep needs more time
 m = ScatterRelationObstacle(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
  numberOfDirect, timeStep)
@@ -80,7 +82,7 @@ pause(20);
 T["datagen"] = toq();tic();
 # settings
 ################################################################################
-N = 45; ext = 1.5; # domain
+N = 75; ext = 1.5; # domain
 penalty    = 5e-1; # regularization param
 rejection  = 5e-2; # fidelity rejection rate
 decay      = 10;   # fidelity heristic decay
@@ -238,7 +240,7 @@ m[:,9] *=accurateTimeStep*0.5;
 NonReflectionPlot(c0, m[orthoIndex,:], ext, accurateTimeStep);
 
 th = linspace(0, 2*pi, 300);
-r = (0.4 + 0.2* sin(3 *th));
+r = (0.4 + 0.2* sin(4 *th));
 xx = r .* cos(th);
 yy = r .* sin(th);
 plot(yy, xx, "b--");

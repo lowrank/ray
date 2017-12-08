@@ -1,9 +1,9 @@
-@everywhere @fastmath function Hamilton(phase, c, ∇c)
+@everywhere @fastmath function Hamilton(phase::Vector{Float64}, c::Function, ∇c::Function)
     speed = c(phase[1], phase[2]);
     H = [speed^2 * phase[3:4]; -(phase[3:4]'*phase[3:4])[1]*∇c(phase[1], phase[2]) * speed];
 end
 
-@everywhere @fastmath function DiscreteHamilton(X, eval, grad, p)
+@everywhere @fastmath function DiscreteHamilton(X::Vector{Float64}, eval::SharedArray{Float64, 3}, grad::SharedArray{Float64, 3}, p::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}})
     N = size(eval, 1) + 1; # recovers the dimension.
     h = p[2] - p[1];
     I = Int64(floor((X[1] - p[1])/ h)) + 1;
@@ -19,7 +19,7 @@ end
     return z,I,J, c, gcX, gcY, H
 end
 
-@everywhere @fastmath function DiscreteJacobian(X, hess, z, I, J, c, gcX, gcY)
+@everywhere @fastmath function DiscreteJacobian(X::Vector{Float64}, hess::SharedArray{Float64, 3}, z::Vector{Float64}, I::Int, J::Int, c::Float64, gcX::Float64, gcY::Float64)
     hXX = (z'* hess[I,J,1:4])[1];
     hXY = (z'* hess[I,J,5:8])[1];
     hYY = (z'* hess[I,J,9:12])[1];
@@ -29,7 +29,7 @@ end
     M = [2 * c * X[3:4] * g' c^2*eye(2); -(c*h + g*g') * τ  -2*c * g*X[3:4]'];
 end
 
-@everywhere @fastmath function ScatterRelation(c, ∇c, ns, nd, dt, dir=[0,pi])
+@everywhere @fastmath function ScatterRelation(c::Function, ∇c::Function, ns::Int, nd::Int, dt::Float64, dir=[0,pi])
     source = linspace(0, 2 * pi, ns + 1); source = source[1:ns];
     direct = linspace(dir[1], dir[2], nd + 2); direct = direct[2:nd+1];
     sensor = [cos.(source) sin.(source)];
@@ -78,11 +78,11 @@ end
 
 # irregular representation.
 # I usually refers to y and J refers to x. In following representation, I is x axis, J is y axis.
-@everywhere @fastmath function Q4(c, I, J, dx)
+@everywhere @fastmath function Q4(c::Matrix{Float64}, I::Int, J::Int, dx::Float64)
     q = [c[I,J], (c[I+1,J]-c[I,J])/dx, (c[I, J+1] - c[I,J])/dx, (c[I+1,J+1]+c[I,J]-c[I+1,J]-c[I,J+1])/dx^2];
 end
 
-@everywhere @fastmath function ∂V(X, eval, grad, p)
+@everywhere @fastmath function ∂V(X::Vector{Float64}, eval::SharedArray{Float64}, grad::SharedArray{Float64}, p::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}})
     N = size(eval, 1) + 1; # recovers the dimension.
     h = p[2] - p[1]; # p[1] = -ext.
 
@@ -112,11 +112,11 @@ end
             -c * τ * ψ/(2*h);
             -τ * gcY * ϕ + c * τ * γ/(2*h);
             - c* τ * γ/(2*h)];
-    A = sparse(round(Int64, Rind), round(Int64, Cind), Vind,4, N^2);
+    A = sparse(round.(Int64, Rind), round.(Int64, Cind), Vind,4, N^2);
 
 end
 
-@everywhere @fastmath function ChunkProcessing!(division, M, s, m, eval, grad, hess, T, p, N, timeStep)
+@everywhere @fastmath function ChunkProcessing!(division::Array{Array{Int, 1},1}, M::SharedArray{Float64, 2}, s::SharedArray{Float64,2}, m::SharedArray{Float64, 2}, eval::SharedArray{Float64, 3}, grad::SharedArray{Float64, 3}, hess::SharedArray{Float64, 3}, T::Vector{Float64}, p::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}}, N::Int, timeStep::Float64)
     idx = indexpids(M)
     if idx == 0
         return;
@@ -162,7 +162,7 @@ end
     end
 end
 
-@everywhere @fastmath function ScatterForwardOperator(c, m, ext, dt)
+@everywhere @fastmath function ScatterForwardOperator(c::Matrix{Float64}, m::SharedArray{Float64,2}, ext::Float64, dt::Float64)
     N = size(c, 1); num = size(m, 1);
     p = linspace(-ext, ext, N); dx = 2 * ext / (N-1);
     eval = SharedArray{Float64}((N-1, N-1, 4));
@@ -218,7 +218,7 @@ end
     Base.SparseArrays.droptol!(sparse(M), 1e-12, false),s # compress the matrix
 end
 
-@fastmath function regularization(h, N)
+@fastmath function regularization(h::Float64, N::Int)
     xI = zeros(Int, 2 * (N-5)^2);
     xJ = zeros(Int, 2 * (N-5)^2);
     xV = zeros(2*(N-5)^2);
@@ -249,15 +249,15 @@ end
     r = (gradientX'*gradientX + gradientY'*gradientY);
 end
 
-@fastmath function interpolation(R, c0, Idx, N)
+@fastmath function interpolation(R, c0::Matrix{Float64}, Idx::Vector{Int}, N::Int)
     z = reshape(c0, N^2);
     b = -R * z;
     z[Idx] = R[Idx, Idx]\b[Idx];
     return reshape(z, N,N);
 end
 
-function NonObstacleReconstruction(m, N, ext, penalty, rejectiom, decay,
-    rankThres, waveSpeed)
+function NonObstacleReconstruction(m::SharedArray{Float64,2}, N::Int, ext::Float64, penalty::Float64, rejection::Float64, decay::Float64,
+    rankThres::Int, waveSpeed::Function)
 ################################################################################
     T = Dict();tic();
     target = reshape(m[:,5:8]', 4 * size(m, 1), );
