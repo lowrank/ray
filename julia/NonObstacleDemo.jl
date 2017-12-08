@@ -1,4 +1,4 @@
-addprocs(4)
+addprocs(3)
 using PyPlot
 @everywhere using Suppressor
 @everywhere @suppress include("NonObstacle.jl")
@@ -28,7 +28,7 @@ numberOfDirect = 100;
 timeStep       = 5e-2; # caution small timestep needs more time
 
 ################################################################################
-@time m = ScatterRelation(waveSpeed, gradWaveSpeed, numberOfSensor,
+m = ScatterRelation(waveSpeed, gradWaveSpeed, numberOfSensor,
  numberOfDirect, timeStep, (0,pi));
 
 ################################################################################

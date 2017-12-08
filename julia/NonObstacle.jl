@@ -3,7 +3,7 @@
     H = [speed^2 * phase[3:4]; -(phase[3:4]'*phase[3:4])[1]*∇c(phase[1], phase[2]) * speed];
 end
 
-@everywhere @fastmath function DiscreteHamilton(X::Vector{Float64}, eval::SharedArray{Float64, 3}, grad::SharedArray{Float64, 3}, p::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}})
+@everywhere @fastmath function DiscreteHamilton(X::Vector{Float64}, eval::SharedArray{Float64, 3}, grad::SharedArray{Float64, 3},hess::SharedArray{Float64, 3}, p::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}})
     N = size(eval, 1) + 1; # recovers the dimension.
     h = p[2] - p[1];
     I = Int64(floor((X[1] - p[1])/ h)) + 1;
@@ -16,17 +16,15 @@ end
     gcX = (z'* grad[I,J,1:4])[1];
     gcY = (z'* grad[I,J,5:8])[1];
     H = [c^2 * X[3:4]; -[gcX, gcY] * c * τ];
-    return z,I,J, c, gcX, gcY, H
-end
 
-@everywhere @fastmath function DiscreteJacobian(X::Vector{Float64}, hess::SharedArray{Float64, 3}, z::Vector{Float64}, I::Int, J::Int, c::Float64, gcX::Float64, gcY::Float64)
     hXX = (z'* hess[I,J,1:4])[1];
     hXY = (z'* hess[I,J,5:8])[1];
     hYY = (z'* hess[I,J,9:12])[1];
     h = [hXX hXY;hXY hYY]; # hessian
     g = [gcX, gcY];
-    τ = (X[3:4]'*X[3:4])[1];
     M = [2 * c * X[3:4] * g' c^2*eye(2); -(c*h + g*g') * τ  -2*c * g*X[3:4]'];
+
+    return H, M
 end
 
 @everywhere @fastmath function ScatterRelation(c::Function, ∇c::Function, ns::Int, nd::Int, dt::Float64, dir=[0,pi])
@@ -135,18 +133,20 @@ end
             t = t + dt;
             Θ = inv(ρ) * ∂V(X, eval, grad, p) * dt/2;
             Φ += Θ;
-            k1 = DiscreteHamilton(X             , eval, grad, p); # k = z, I,J, c, gcx, gcy, h
-            k2 = DiscreteHamilton(X + k1[7]/2*dt, eval, grad, p);
-            k3 = DiscreteHamilton(X + k2[7]/2*dt, eval, grad, p);
-            k4 = DiscreteHamilton(X + k3[7]*dt  , eval, grad, p);
 
-            v1 = DiscreteJacobian(X                , hess, k1[1], k1[2], k1[3], k1[4], k1[5], k1[6]) * ρ;
-            v2 = DiscreteJacobian(X + k1[7]*dt/2   , hess, k2[1], k2[2], k2[3], k2[4], k2[5], k2[6]) * (ρ + v1*dt/2);
-            v3 = DiscreteJacobian(X + k2[7]*dt/2   , hess, k3[1], k3[2], k3[3], k3[4], k3[5], k3[6]) * (ρ + v2*dt/2);
-            v4 = DiscreteJacobian(X + k3[7]*dt     , hess, k4[1], k4[2], k4[3], k4[4], k4[5], k4[6]) * (ρ + v3*dt);
+            k1, t1 = DiscreteHamilton(X          , eval, grad, hess, p);
+            k2, t2 = DiscreteHamilton(X + k1/2*dt, eval, grad, hess, p);
+            k3, t3 = DiscreteHamilton(X + k2/2*dt, eval, grad, hess, p);
+            k4, t4 = DiscreteHamilton(X + k3*dt  , eval, grad, hess, p);
 
-            X += (k1[7] + 2*k2[7] + 2*k3[7] + k4[7])*dt/6.0;
+            v1 = t1 * ρ;
+            v2 = t2 * (ρ + v1*dt/2);
+            v3 = t3 * (ρ + v2*dt/2);
+            v4 = t4*  (ρ + v3*dt);
+
+            X += (k1 + 2*k2 + 2*k3 + k4)*dt/6.0;
             ρ += (v1 + 2*v2 + 2*v3 + v4)*dt/6.0;
+
             Θ =  inv(ρ) * ∂V(X, eval, grad, p) * dt/2;
             Φ += Θ;
             # when X is outside of extended physical domain, directly cease the ray.
@@ -332,7 +332,7 @@ function NonObstacleReconstruction(m::SharedArray{Float64,2}, N::Int, ext::Float
         correction[Idx] =   A\b;
         t_solv = toq();
 
-        residual = abs(𝔐 * correction[Idx] - mismatch[order]);
+        residual = abs.(𝔐 * correction[Idx] - mismatch[order]);
 
         tic();
         for k = 1:size(order, 1)
