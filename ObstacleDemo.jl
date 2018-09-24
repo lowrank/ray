@@ -18,13 +18,13 @@ end
     return 0.45*pi * [cos(1.5*pi*x)*sin(1.5*pi*y), sin(1.5*pi*x) * cos(1.5*pi*y)];
 end
 @everywhere function obstacle(x, y)
-    θ = atan2(x,y);
+    θ = atan2.(x,y);
     r = sqrt(x^2 + y^2);
     ρ = 0.2;
     return r - (0.4 + ρ* sin(3 * θ));
 end
 @everywhere function gradObstacle(x, y)
-    θ =  atan2(x,y);
+    θ =  atan2.(x,y);
     r =  sqrt(x^2 + y^2);
     ρ = 0.2;
     n =  [x, y]/r + 3 * ρ * cos(3 * θ)/r * [-y, x]/r;
@@ -34,8 +34,8 @@ end
 ################################################################################
 
 T = Dict();tic();
-numberOfSensor = 100; # number of sensors placed on boundary.
-numberOfDirect = 200; # number of rays emitted, more rays are needed for obstacle case.
+numberOfSensor = 50; # number of sensors placed on boundary.
+numberOfDirect = 300; # number of rays emitted, more rays are needed for obstacle case.
 timeStep       = 5e-2; # caution small timestep needs more time
 m = ScatterRelationObstacle(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
  numberOfDirect, timeStep)
@@ -52,6 +52,8 @@ end
 unbrokenRays = [];
 unbrokenRaysBound=[];
 
+
+
 for sIdx =1:numberOfSensor
     arg = atan2(m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 6],
      m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 5]);
@@ -62,6 +64,64 @@ for sIdx =1:numberOfSensor
     append!(unbrokenRaysBound, (sIdx - 1) * numberOfDirect + lo);
     append!(unbrokenRaysBound, (sIdx - 1) * numberOfDirect + hi);
 end
+
+
+
+
+sIdx = 30
+pp = m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 9].*timeStep;
+plot(pp,linewidth=4)
+ax = gca()
+axis("tight")
+ylabel("traveltime")
+xlabel("directions")
+t = mod(unbrokenRaysBound[(2*sIdx - 1):2 * sIdx],  numberOfDirect)
+scatter([t[1],t[2]-1], pp[[t[1], t[2]-1]], s = 1200, alpha=0.4)
+ax[:tick_params]("both",labelsize=24)
+ax[:set_xlabel]("directions", fontsize=30)
+ax[:set_title]("traveltimes of 30th boundary point", fontsize=30)
+ax[:set_ylabel]("traveltime", fontsize=30)
+
+pp = m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 5:6].*timeStep;
+zz = atan2(pp[:,2],pp[:,1])
+n=length(zz)
+for i =2:length(zz)
+    if abs(zz[i]-zz[i-1]) > 1.5 * pi
+        zz[i:n] = zz[i:n] - sign(zz[i] - zz[i-1]) * 2*π;
+    end
+end
+
+plot(zz,linewidth=4)
+ax = gca()
+axis("tight")
+t = mod(unbrokenRaysBound[(2*sIdx - 1):2 * sIdx],  numberOfDirect)
+scatter([t[1],t[2]-1], zz[[t[1], t[2]-1]], s = 1200, alpha=0.4)
+ax[:tick_params]("both",labelsize=24)
+ax[:set_xlabel]("directions", fontsize=30)
+ax[:set_title]("exiting angles of 30th boundary point", fontsize=30)
+ax[:set_ylabel]("exiting angles", fontsize=30)
+
+pp = m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 7:8].*timeStep;
+zz = atan2(pp[:,2],pp[:,1])
+n=length(zz)
+for i =2:length(zz)
+    if abs(zz[i]-zz[i-1]) > 1.5 * pi
+        zz[i:n] = zz[i:n] - sign(zz[i] - zz[i-1]) * 2*π;
+    end
+end
+
+plot(zz,linewidth=4)
+ax = gca()
+axis("tight")
+t = mod(unbrokenRaysBound[(2*sIdx - 1):2 * sIdx],  numberOfDirect)
+scatter([t[1],t[2]-1], zz[[t[1], t[2]-1]], s = 1200, alpha=0.4)
+ax[:tick_params]("both",labelsize=24)
+ax[:set_xlabel]("directions", fontsize=30)
+ax[:set_title]("exiting locations of 30th boundary point", fontsize=30)
+ax[:set_ylabel]("exiting locations", fontsize=30)
+
+
+
 
 m[:, 9] *= timeStep;
 s = copy(m); # a copy of data.
