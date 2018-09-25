@@ -27,6 +27,30 @@ end
     return H, M
 end
 
+@everywhere @fastmath function DiscreteHamilton(X::Vector{Float64}, eval::SharedArray{Float64, 3}, grad::SharedArray{Float64, 3}, p::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}})
+    N = size(eval, 1) + 1; # recovers the dimension.
+    h = p[2] - p[1];
+    I = Int64(floor((X[1] - p[1])/ h)) + 1;
+    J = Int64(floor((X[2] - p[1])/ h)) + 1;
+
+    dx = X[1] - p[I]; dy = X[2] - p[J];
+    u = dx/h; v = dy/h; z = [1,dx ,dy ,dx * dy];
+    τ = (X[3:4]'*X[3:4])[1];
+    c = (z'*eval[I,J,:])[1];
+    gcX = (z'* grad[I,J,1:4])[1];
+    gcY = (z'* grad[I,J,5:8])[1];
+    H = [c^2 * X[3:4]; -[gcX, gcY] * c * τ];
+
+    # hXX = (z'* hess[I,J,1:4])[1];
+    # hXY = (z'* hess[I,J,5:8])[1];
+    # hYY = (z'* hess[I,J,9:12])[1];
+    # h = [hXX hXY;hXY hYY]; # hessian
+    # g = [gcX, gcY];
+    # M = [2 * c * X[3:4] * g' c^2*eye(2); -(c*h + g*g') * τ  -2*c * g*X[3:4]'];
+
+    return H
+end
+
 @everywhere @fastmath function ScatterRelation(c::Function, ∇c::Function, ns::Int, nd::Int, dt::Float64, dir=[0,pi])
     source = linspace(0, 2 * pi, ns + 1); source = source[1:ns];
     direct = linspace(dir[1], dir[2], nd + 2); direct = direct[2:nd+1];
@@ -114,7 +138,7 @@ end
 
 end
 
-@everywhere @fastmath function ChunkProcessing!(division::Array{Array{Int, 1},1}, M::SharedArray{Float64, 2}, s::SharedArray{Float64,2}, m::SharedArray{Float64, 2}, eval::SharedArray{Float64, 3}, grad::SharedArray{Float64, 3}, hess::SharedArray{Float64, 3}, T::Vector{Float64}, p::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}}, N::Int, timeStep::Float64)
+@everywhere @fastmath function ChunkProcessing!(division::Array{Array{Int, 1},1}, M::SharedArray{Float64, 2}, s::SharedArray{Float64,2}, m, eval::SharedArray{Float64, 3}, grad::SharedArray{Float64, 3}, hess::SharedArray{Float64, 3}, T::Vector{Float64}, p::StepRangeLen{Float64,Base.TwicePrecision{Float64},Base.TwicePrecision{Float64}}, N::Int, timeStep::Float64)
     idx = indexpids(M)
     if idx == 0
         return;
@@ -162,7 +186,7 @@ end
     end
 end
 
-@everywhere @fastmath function ScatterForwardOperator(c::Matrix{Float64}, m::SharedArray{Float64,2}, ext::Float64, dt::Float64)
+@everywhere @fastmath function ScatterForwardOperator(c::Matrix{Float64}, m, ext::Float64, dt::Float64)
     N = size(c, 1); num = size(m, 1);
     p = linspace(-ext, ext, N); dx = 2 * ext / (N-1);
     eval = SharedArray{Float64}((N-1, N-1, 4));
@@ -257,7 +281,7 @@ end
 end
 
 function NonObstacleReconstruction(m::SharedArray{Float64,2}, N::Int, ext::Float64, penalty::Float64, rejection::Float64, decay::Float64,
-    rankThres::Int, waveSpeed::Function)
+    rankThres::Int, waveSpeed::Function, timeStep::Float64)
 ################################################################################
     T = Dict();tic();
     target = reshape(m[:,5:8]', 4 * size(m, 1), );
@@ -338,7 +362,7 @@ function NonObstacleReconstruction(m::SharedArray{Float64,2}, N::Int, ext::Float
         for k = 1:size(order, 1)
             if residual[k] < rejection
                 id_ = find(M[order[k],:]);
-                fidelty[id_] = max(fidelty[id_], 1 - decay * residual[k]);
+                fidelty[id_] = max.(fidelty[id_], 1 - decay * residual[k]);
             end
         end
         t_fid = toq();

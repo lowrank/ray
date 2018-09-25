@@ -25,11 +25,12 @@ end
 ################################################################################
 numberOfSensor = 100;
 numberOfDirect = 100;
+fineTimeStep   = 1e-2;
 timeStep       = 5e-2; # caution small timestep needs more time
 
 ################################################################################
 m = ScatterRelation(waveSpeed, gradWaveSpeed, numberOfSensor,
- numberOfDirect, timeStep, (0,pi));
+ numberOfDirect, fineTimeStep, (0,pi));
 
 ################################################################################
 N = 75; ext = 1.5; # domain
@@ -40,5 +41,5 @@ iteration  = 0;    # iteration number
 rankThres  = 12;   # acceptable rays
 
 NonObstacleReconstruction(m, N, ext, penalty, rejection, decay,
-     rankThres, waveSpeed);
+     rankThres, waveSpeed, timeStep);
 ################################################################################

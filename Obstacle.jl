@@ -224,7 +224,7 @@ end
     p = linspace(-ext, ext, N); dx = 2 * ext / (N-1);
     eval = SharedArray{Float64}((N-1, N-1, 4));
     grad = SharedArray{Float64}((N-2, N-2, 8));
-    hess = SharedArray{Float64}((N-3, N-3, 12));
+    # hess = SharedArray{Float64}((N-3, N-3, 12));
 
     # simple loops do not need parallel, extra costs.
     @inbounds for I = 1:N-1
@@ -240,13 +240,13 @@ end
         end
     end
 
-    @inbounds for I = 3:N-3
-       @inbounds for J=3:N-3
-            hess[I,J, 1:4]  = (grad[I+1,J,1:4] - grad[I-1,J,1:4])/(2*dx);
-            hess[I,J, 5:8]  = (grad[I,J+1,1:4] - grad[I,J-1,1:4])/(2*dx);
-            hess[I,J, 9:12] = (grad[I,J+1,5:8] - grad[I,J-1,5:8])/(2*dx);
-        end
-    end
+    # @inbounds for I = 3:N-3
+    #    @inbounds for J=3:N-3
+    #         hess[I,J, 1:4]  = (grad[I+1,J,1:4] - grad[I-1,J,1:4])/(2*dx);
+    #         hess[I,J, 5:8]  = (grad[I,J+1,1:4] - grad[I,J-1,1:4])/(2*dx);
+    #         hess[I,J, 9:12] = (grad[I,J+1,5:8] - grad[I,J-1,5:8])/(2*dx);
+    #     end
+    # end
 
     T = m[:, 9];
 
@@ -256,12 +256,12 @@ end
         res = X[1:2];
         @inbounds while (t < T[i]) # one optimization is fixing I,J during each step.
             t = t + dt;
-            k1 = DiscreteHamilton(X             , eval, grad, p); # k = z, I,J, c, gcx, gcy, h
-            k2 = DiscreteHamilton(X + k1[7]/2*dt, eval, grad, p);
-            k3 = DiscreteHamilton(X + k2[7]/2*dt, eval, grad, p);
-            k4 = DiscreteHamilton(X + k3[7]*dt  , eval, grad, p);
+            k1 = DiscreteHamilton(X          , eval, grad, p); # k = z, I,J, c, gcx, gcy, h
+            k2 = DiscreteHamilton(X + k1/2*dt, eval, grad, p);
+            k3 = DiscreteHamilton(X + k2/2*dt, eval, grad, p);
+            k4 = DiscreteHamilton(X + k3*dt  , eval, grad, p);
 
-            X += (k1[7] + 2*k2[7] + 2*k3[7] + k4[7])*dt/6.0;
+            X += (k1 + 2*k2 + 2*k3 + k4)*dt/6.0;
             # when X is outside of extended physical domain, directly cease the ray.
             res = [res X[1:2]]
         end
@@ -277,7 +277,7 @@ end
     p = linspace(-ext, ext, N); dx = 2 * ext / (N-1);
     eval = SharedArray{Float64}((N-1, N-1, 4));
     grad = SharedArray{Float64}((N-2, N-2, 8));
-    hess = SharedArray{Float64}((N-3, N-3, 12));
+    # hess = SharedArray{Float64}((N-3, N-3, 12));
 
     # simple loops do not need parallel, extra costs.
     @inbounds for I = 1:N-1
@@ -293,13 +293,13 @@ end
         end
     end
 
-    @inbounds for I = 3:N-3
-       @inbounds for J=3:N-3
-            hess[I,J, 1:4]  = (grad[I+1,J,1:4] - grad[I-1,J,1:4])/(2*dx);
-            hess[I,J, 5:8]  = (grad[I,J+1,1:4] - grad[I,J-1,1:4])/(2*dx);
-            hess[I,J, 9:12] = (grad[I,J+1,5:8] - grad[I,J-1,5:8])/(2*dx);
-        end
-    end
+    # @inbounds for I = 3:N-3
+    #    @inbounds for J=3:N-3
+    #         hess[I,J, 1:4]  = (grad[I+1,J,1:4] - grad[I-1,J,1:4])/(2*dx);
+    #         hess[I,J, 5:8]  = (grad[I,J+1,1:4] - grad[I,J-1,1:4])/(2*dx);
+    #         hess[I,J, 9:12] = (grad[I,J+1,5:8] - grad[I,J-1,5:8])/(2*dx);
+    #     end
+    # end
 
     T = m[:, 9];
 
@@ -309,12 +309,12 @@ end
         # res = X[1:2];
         @inbounds while (t < T[i]) # one optimization is fixing I,J during each step.
             t = t + dt;
-            k1 = DiscreteHamilton(X             , eval, grad, p); # k = z, I,J, c, gcx, gcy, h
-            k2 = DiscreteHamilton(X + k1[7]/2*dt, eval, grad, p);
-            k3 = DiscreteHamilton(X + k2[7]/2*dt, eval, grad, p);
-            k4 = DiscreteHamilton(X + k3[7]*dt  , eval, grad, p);
+            k1 = DiscreteHamilton(X          , eval, grad, p); # k = z, I,J, c, gcx, gcy, h
+            k2 = DiscreteHamilton(X + k1/2*dt, eval, grad, p);
+            k3 = DiscreteHamilton(X + k2/2*dt, eval, grad, p);
+            k4 = DiscreteHamilton(X + k3*dt  , eval, grad, p);
 
-            X += (k1[7] + 2*k2[7] + 2*k3[7] + k4[7])*dt/6.0;
+            X += (k1+ 2*k2 + 2*k3 + k4)*dt/6.0;
             # when X is outside of extended physical domain, directly cease the ray.
             # res = [res X[1:2]]
         end
