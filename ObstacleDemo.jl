@@ -18,16 +18,16 @@ end
     # return 0.45*pi * [cos(1.5*pi*x)*sin(1.5*pi*y), sin(1.5*pi*x) * cos(1.5*pi*y)];
 end
 @everywhere function obstacle(x, y)
-    θ = atan2.(x,y);
+    θ = atan2.(y,x);
     r = sqrt(x^2 + y^2);
     ρ = 0.2;
-    return r - (0.4 + ρ* sin(3 * θ));
+    return r - (0.4 - ρ* cos(3 * θ));
 end
 @everywhere function gradObstacle(x, y)
-    θ =  atan2.(x,y);
+    θ =  atan2.(y, x);
     r =  sqrt(x^2 + y^2);
     ρ = 0.2;
-    n =  [x, y]/r + 3 * ρ * cos(3 * θ)/r * [-y, x]/r;
+    n =  [x, y]/r - 3 * ρ * sin(3 * θ)/r * [-y, x]/r;
     return n/norm(n);
 end
 
@@ -238,7 +238,7 @@ while true
     print(@sprintf("%6d\t%6.2d\t%10.2e\t%10.2e\t%6.2f\t%6.2f\t%6.2f\t%6.2f\n", iteration, sum(fidelty), objective , error, t_forward, t_dof, t_solv, t_fid));
 
     iteration += 1;
-    if iteration >= 50 || objective < 1e-1 # when scatter relation has been recovered, iteration stops.
+    if iteration >= 50 || objective < 1e-2 # when scatter relation has been recovered, iteration stops.
         break;
     end
 
@@ -278,8 +278,8 @@ end
 #=
 plot recovered rays.
 =#
-NonReflectionPlot(c0, s[unbrokenRaysBound,:], ext, fineTimeStep);
-pause(30);
+#NonReflectionPlot(c0, s[unbrokenRaysBound,:], ext, fineTimeStep);
+#pause(30);
 ################################################################################
 #=
 use all orthogonal rays.
@@ -294,8 +294,8 @@ m[:,9] *=accurateTimeStep*0.5;
 NonReflectionPlot(c0, m[orthoIndex,:], ext, accurateTimeStep);
 
 th = linspace(0, 2*pi, 300);
-r = (0.4 + 0.2* sin.(3 *th));
+r = (0.4 - 0.2* cos.(3 *th));
 xx = r .* cos.(th);
 yy = r .* sin.(th);
-plot(yy, xx, "b--");
+plot(xx, yy, "b--");
 pause(20);
