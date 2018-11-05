@@ -6,28 +6,30 @@ using PyPlot
 @everywhere include("Obstacle.jl")
 
 @everywhere function waveSpeed(x, y)
-    r = sqrt((x-0.5)^2 + (y-0.2)^2);
-    v = sqrt((x+0.4)^2 + (y+0.3)^2);
-    return 1 + 0.4 * sin(pi * r) + 0.4 * sin(pi * v);
-    # return 1+0.3*sin(1.5*pi*x) * sin(1.5*pi*y);
+    # r = sqrt((x-0.5)^2 + (y-0.2)^2);
+    # v = sqrt((x+0.4)^2 + (y+0.3)^2);
+    # return 1 + 0.4 * sin(pi * r) + 0.4 * sin(pi * v);
+    return 1+0.2*sin(2*pi*x) * sin(pi*y);
 end
 @everywhere function gradWaveSpeed(x, y)
-    r = (sqrt((x-0.5)^2 + (y-0.2)^2));
-    v = (sqrt((x+0.4)^2 + (y+0.3)^2));
-    return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] + 0.4 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
-    # return 0.45*pi * [cos(1.5*pi*x)*sin(1.5*pi*y), sin(1.5*pi*x) * cos(1.5*pi*y)];
+    # r = (sqrt((x-0.5)^2 + (y-0.2)^2));
+    # v = (sqrt((x+0.4)^2 + (y+0.3)^2));
+    # return 0.4 * pi * cos(pi* r)/r * [(x-0.5), (y-0.2)] + 0.4 * pi * cos(pi * v)/v * [(x+0.4), (y+0.3)]
+    return 0.2*pi * [2 * cos(2*pi*x)*sin(pi*y), sin(2*pi*x) * cos(pi*y)];
 end
 @everywhere function obstacle(x, y)
     θ = atan2.(y,x);
     r = sqrt(x^2 + y^2);
-    ρ = 0.2;
-    return r - (0.4 - ρ* cos(3 * θ));
+    ρ = 0.3;
+    # return r - (0.4 - ρ* cos(3 * θ));
+    return r - 0.3
 end
 @everywhere function gradObstacle(x, y)
     θ =  atan2.(y, x);
     r =  sqrt(x^2 + y^2);
     ρ = 0.2;
-    n =  [x, y]/r - 3 * ρ * sin(3 * θ)/r * [-y, x]/r;
+    # n =  [x, y]/r - 3 * ρ * sin(3 * θ)/r * [-y, x]/r;
+    n = [x, y]/r
     return n/norm(n);
 end
 
@@ -125,12 +127,12 @@ target = reshape(m[:,5:8]', 4 * size(m,1), );
 #=
 the plot of non-reflected rays will take a long time, it cannot be parallelized easily.
 =#
-ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
- numberOfDirect, fineTimeStep, orthoIndex);
-pause(20);
-ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
-  numberOfDirect, fineTimeStep, unbrokenRaysBound);
-pause(20);
+# ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
+#  numberOfDirect, fineTimeStep, orthoIndex);
+# pause(20);
+# ScatterRelationObstaclePlot(waveSpeed, gradWaveSpeed, obstacle, gradObstacle, numberOfSensor,
+#   numberOfDirect, fineTimeStep, unbrokenRaysBound);
+# pause(20);
 
 ################################################################################
 T["datagen"] = toq();tic();
@@ -141,7 +143,7 @@ penalty    = 5e-1; # regularization param
 rejection  = 5e-2; # fidelity rejection rate
 decay      = 10;   # fidelity heristic decay
 iteration  = 0;    # iteration number
-rankThres  = 12;   # acceptable rays
+rankThres  = 3600;   # acceptable rays
 p          = linspace(-ext,ext, N);
 hi         = searchsortedfirst(p, 1.0);
 lo         = searchsortedlast(p, -1.0);
@@ -183,6 +185,8 @@ c0 = interpolation(regularize, c0, Ldx, N);
 Ldx = setdiff(Ldx, Edx);
 mask = NaN*ones(N^2);mask[Ldx] = 0.; mask = reshape(mask, N,N); #NaN mask
 @everywhere gc(); # gc before going into main loop.
+
+c0 = 0.8 * ones(size(c0))
 ################################################################################
 cmap = PyPlot.cm[:jet];
 cmap[:set_bad]("white",1.);
@@ -199,15 +203,29 @@ while true
 
     # approximation of rank.
     tic();
-    Threads.@threads for j = 1:size(m,1)
-        dofs[j] = nnz(M[4 * j - 3, :]) - sum(fidelty[find(M[4 * j - 3, :])]);
-    end
+    # Threads.@threads for j = 1:size(m,1)
+    #     dofs[j] = nnz(M[4 * j - 3, :]) - sum(fidelty[find(M[4 * j - 3, :])]);
+    # end
     t_dof = toq();
+    #
+    # perm = sortperm(dofs, rev=false);
+    # trunc = searchsortedlast(dofs[perm], rankThres);
+    #
+    # order = perm[1:trunc];
+    # order = reshape([4 * order - 3 4 * order - 2 4 * order - 1 4 * order]', size(order, 1) * 4, );
 
-    perm = sortperm(dofs, rev=false);
-    trunc = searchsortedlast(dofs[perm], rankThres);
+    perc = zeros(size(m ,1), );
 
-    order = perm[1:trunc];
+    for i = 1:size(m , 1)
+        perc[i] = norm(m[i, 5:8] - observation[i, 5:8]) / norm(m[i, 5:8]);
+        if perc[i] < 0.2
+            perc[i] = 1;
+        else
+            perc[i] = 0;
+        end
+    end
+
+    order = find(perc);
     order = reshape([4 * order - 3 4 * order - 2 4 * order - 1 4 * order]', size(order, 1) * 4, );
 
     𝔐 = M[order, Idx];
@@ -238,7 +256,7 @@ while true
     print(@sprintf("%6d\t%6.2d\t%10.2e\t%10.2e\t%6.2f\t%6.2f\t%6.2f\t%6.2f\n", iteration, sum(fidelty), objective , error, t_forward, t_dof, t_solv, t_fid));
 
     iteration += 1;
-    if iteration >= 50 || objective < 1e-2 # when scatter relation has been recovered, iteration stops.
+    if iteration >= 50 || objective <1e-2 # when scatter relation has been recovered, iteration stops.
         break;
     end
 
@@ -278,8 +296,8 @@ end
 #=
 plot recovered rays.
 =#
-#NonReflectionPlot(c0, s[unbrokenRaysBound,:], ext, fineTimeStep);
-#pause(30);
+# NonReflectionPlot(c0, s[unbrokenRaysBound,:], ext, fineTimeStep);
+# pause(30);
 ################################################################################
 #=
 use all orthogonal rays.
@@ -294,7 +312,8 @@ m[:,9] *=accurateTimeStep*0.5;
 NonReflectionPlot(c0, m[orthoIndex,:], ext, accurateTimeStep);
 
 th = linspace(0, 2*pi, 300);
-r = (0.4 - 0.2* cos.(3 *th));
+# r = (0.4 - 0.2* cos.(3 *th));
+r = 0.3
 xx = r .* cos.(th);
 yy = r .* sin.(th);
 plot(xx, yy, "b--");

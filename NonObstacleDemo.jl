@@ -35,10 +35,10 @@ m = ScatterRelation(waveSpeed, gradWaveSpeed, numberOfSensor,
 ################################################################################
 N = 75; ext = 1.5; # domain
 penalty    = 5e-1; # regularization param
-rejection  = 5e-2; # fidelity rejection rate
-decay      = 10.0;   # fidelity heristic decay
+rejection  = 1.0; # fidelity rejection rate
+decay      = 0.0;   # fidelity heristic decay
 iteration  = 0;    # iteration number
-rankThres  = 12;   # acceptable rays
+rankThres  = 3600;   # acceptable rays
 
 NonObstacleReconstruction(m, N, ext, penalty, rejection, decay,
      rankThres, waveSpeed, timeStep);
