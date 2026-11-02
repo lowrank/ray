@@ -1,3 +1,6 @@
+using Distributed
+@everywhere using LinearAlgebra, SharedArrays
+
 #===============================================================================
 The inputs:
 - c, ∇c are functions.
@@ -9,11 +12,11 @@ The inputs:
 #
 # end
 @everywhere @fastmath function ScatterRelationObstacle(c, ∇c, ob, ∇ob, ns, nd, dt)
-    source = linspace(0, 2 * pi, ns + 1); source = source[1:ns];
-    direct = linspace(0, pi, nd + 2); direct = direct[2:nd+1];
+    source = range(0, stop=2 * pi, length=ns + 1); source = source[1:ns];
+    direct = range(0, stop=pi, length=nd + 2); direct = direct[2:nd+1];
     sensor = [cos.(source) sin.(source)];
     m = SharedArray{Float64}((ns * nd, 9));
-    @inbounds @sync @parallel for i = 1:ns
+    @inbounds @sync @distributed for i = 1:ns
         @inbounds for j = 1:nd
             theta = source[i] + pi * 0.5 + direct[j];
             v = [cos.(theta) sin.(theta)] / (c(sensor[i, 1], sensor[i, 2]));
@@ -46,7 +49,11 @@ The inputs:
                 ########################### do while ###########################
                 mid = (lo+hi)/2;𝔈 =(1-mid)*prev+mid*X; e = norm(𝔈[1:2]) - 1;
                 while abs(e) > 1e-15
-                    e > 0? hi = mid:lo=mid;
+                    if e > 0
+                        hi = mid
+                    else
+                        lo = mid
+                    end
                     mid =(lo+hi)/2;𝔈 =(1-mid)*prev+mid*X; e = norm(𝔈[1:2]) - 1;
                 end
                 ################################################################
@@ -75,14 +82,18 @@ The inputs:
                 ########################## do while ############################
                 mid=(lo + hi)/2;𝕽=(1-mid) * prev + mid * X; e = ob(𝕽[1], 𝕽[2]);
                 while abs(e) > 1e-15 # tolerance, depending on the ob function.
-                    e > 0 ? lo=mid:hi=mid;
+                    if e > 0
+                        lo = mid
+                    else
+                        hi = mid
+                    end
                     mid=(lo + hi)/2;𝕽=(1-mid)*prev + mid*X; e = ob(𝕽[1], 𝕽[2]);
                 end
                 ################################################################
                 # res = [res 𝕽[1:2]]; # reflection
                 # reverse it! Trace back for a short time dt * (1 - mid);
                 n = gradObstacle(𝕽[1], 𝕽[2]);
-                X[1:2] = 𝕽[1:2];X[3:4] = (eye(2) - 2 * n*n')*𝕽[3:4];
+                X[1:2] = 𝕽[1:2];X[3:4] = (I - 2 * n*n')*𝕽[3:4];
                 # k1 = Hamilton(X, c, ∇c) * dt * (1-mid);
                 # k2 = Hamilton(X + k1/2, c, ∇c) * dt * (1-mid);
                 # k3 = Hamilton(X + k2/2, c, ∇c) * dt * (1-mid);
@@ -96,11 +107,11 @@ The inputs:
     m
 end
 @everywhere @fastmath function ScatterRelationObstaclePlot(c, ∇c, ob, ∇ob, ns, nd, dt, rayIndex)
-    source = linspace(0, 2 * pi, ns + 1); source = source[1:ns];
-    direct = linspace(0, pi, nd + 2); direct = direct[2:nd+1];
+    source = range(0, stop=2 * pi, length=ns + 1); source = source[1:ns];
+    direct = range(0, stop=pi, length=nd + 2); direct = direct[2:nd+1];
     sensor = [cos.(source) sin.(source)];
     m = SharedArray{Float64}((ns * nd, 9));
-    @inbounds @sync @parallel for i = 1:ns
+    @inbounds @sync @distributed for i = 1:ns
         @inbounds for j = 1:nd
             theta = source[i] + pi * 0.5 + direct[j];
             v = [cos.(theta) sin.(theta)] / (c(sensor[i, 1], sensor[i, 2]));
@@ -134,7 +145,11 @@ end
                 ########################### do while ###########################
                 mid = (lo+hi)/2;𝔈 =(1-mid)*prev+mid*X; e = norm(𝔈[1:2]) - 1;
                 while abs(e) > 1e-15
-                    e > 0? hi = mid:lo=mid;
+                    if e > 0
+                        hi = mid
+                    else
+                        lo = mid
+                    end
                     mid =(lo+hi)/2;𝔈 =(1-mid)*prev+mid*X; e = norm(𝔈[1:2]) - 1;
                 end
                 ################################################################
@@ -164,14 +179,18 @@ end
                 ########################## do while ############################
                 mid=(lo + hi)/2;𝕽=(1-mid) * prev + mid * X; e = ob(𝕽[1], 𝕽[2]);
                 while abs(e) > 1e-15 # tolerance, depending on the ob function.
-                    e > 0 ? lo=mid:hi=mid;
+                    if e > 0
+                        lo = mid
+                    else
+                        hi = mid
+                    end
                     mid=(lo + hi)/2;𝕽=(1-mid)*prev + mid*X; e = ob(𝕽[1], 𝕽[2]);
                 end
                 ################################################################
                 res = [res 𝕽[1:2]]; # reflection
                 # reverse it! Trace back for a short time dt * (1 - mid);
                 n = gradObstacle(𝕽[1], 𝕽[2]);
-                X[1:2] = 𝕽[1:2];X[3:4] = (eye(2) - 2 * n*n')*𝕽[3:4];
+                X[1:2] = 𝕽[1:2];X[3:4] = (I - 2 * n*n')*𝕽[3:4];
                 # k1 = Hamilton(X, c, ∇c) * dt * (1-mid);
                 # k2 = Hamilton(X + k1/2, c, ∇c) * dt * (1-mid);
                 # k3 = Hamilton(X + k2/2, c, ∇c) * dt * (1-mid);
@@ -198,7 +217,7 @@ end
             #     res = [res 𝕽[1:2]]; # reflection
             #     # reverse it! Trace back for a short time dt * (1 - mid);
             #     n = gradObstacle(𝕽[1], 𝕽[2]);
-            #     X[1:2] = 𝕽[1:2];X[3:4] = (eye(2) - 2 * n*n')*𝕽[3:4];
+            #     X[1:2] = 𝕽[1:2];X[3:4] = (I - 2 * n*n')*𝕽[3:4];
             #     k1 = Hamilton(X, c, ∇c) * dt * (1-mid);
             #     k2 = Hamilton(X + k1/2, c, ∇c) * dt * (1-mid);
             #     k3 = Hamilton(X + k2/2, c, ∇c) * dt * (1-mid);
@@ -221,7 +240,7 @@ end
 end
 @everywhere @fastmath function NonReflectionPlot(c, m, ext, dt)
     N = size(c, 1); num = size(m, 1);
-    p = linspace(-ext, ext, N); dx = 2 * ext / (N-1);
+    p = range(-ext, stop=ext, length=N); dx = 2 * ext / (N-1);
     eval = SharedArray{Float64}((N-1, N-1, 4));
     grad = SharedArray{Float64}((N-2, N-2, 8));
     # hess = SharedArray{Float64}((N-3, N-3, 12));
@@ -274,7 +293,7 @@ end
 end
 @everywhere @fastmath function NonReflectionTrace(c, m, ext, dt)
     N = size(c, 1); num = size(m, 1);
-    p = linspace(-ext, ext, N); dx = 2 * ext / (N-1);
+    p = range(-ext, stop=ext, length=N); dx = 2 * ext / (N-1);
     eval = SharedArray{Float64}((N-1, N-1, 4));
     grad = SharedArray{Float64}((N-2, N-2, 8));
     # hess = SharedArray{Float64}((N-3, N-3, 12));
