@@ -1,0 +1,50 @@
+name: Julia checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.13'
+      - name: Parse sources and run smoke checks
+        run: |
+          julia --startup-file=no -e '
+          for file in ("NonObstacle.jl", "NonObstacleDemo.jl", "Obstacle.jl", "ObstacleDemo.jl", "Utility.jl")
+              Meta.parseall(read(file, String))
+          end
+
+          include("NonObstacle.jl")
+          include("Obstacle.jl")
+          include("Utility.jl")
+
+          @assert isapprox(similarity([1.0, 0.0], [1.0, 0.0]), 1.0)
+          @assert size(regularization(0.1, 8)) == (64, 64)
+
+          evals = SharedArray{Float64}((2, 2, 4))
+          fill!(evals, 0.0)
+          evals[:, :, 1] .= 1.0
+          grads = SharedArray{Float64}((2, 2, 8))
+          fill!(grads, 0.0)
+          hess = SharedArray{Float64}((2, 2, 12))
+          fill!(hess, 0.0)
+          H, M = DiscreteHamilton([0.0, 0.0, 1.0, 0.0], evals, grads, hess,
+                                  range(-1.0, stop=1.0, length=3))
+          @assert length(H) == 4 && size(M) == (4, 4)
+
+          c = ones(8, 8)
+          measurements = zeros(1, 9)
+          measurements[1, 3] = 1.0
+          measurements[1, 9] = 0.05
+          traced = NonReflectionTrace(c, measurements, 1.5, 0.05)
+          @assert size(traced) == (1, 9) && all(isfinite, traced)
+          '

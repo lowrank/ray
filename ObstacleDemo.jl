@@ -1,3 +1,5 @@
+using Distributed
+
 addprocs(3)
 using PyPlot
 
@@ -18,14 +20,14 @@ end
     return 0.2*pi * [2 * cos(2*pi*x)*sin(pi*y), sin(2*pi*x) * cos(pi*y)];
 end
 @everywhere function obstacle(x, y)
-    θ = atan2.(y,x);
+    θ = atan.(y,x);
     r = sqrt(x^2 + y^2);
     ρ = 0.3;
     # return r - (0.4 - ρ* cos(3 * θ));
     return r - 0.3
 end
 @everywhere function gradObstacle(x, y)
-    θ =  atan2.(y, x);
+    θ =  atan.(y, x);
     r =  sqrt(x^2 + y^2);
     ρ = 0.2;
     # n =  [x, y]/r - 3 * ρ * sin(3 * θ)/r * [-y, x]/r;
@@ -56,7 +58,7 @@ unbrokenRays = [];
 unbrokenRaysBound=[];
 
 for sIdx =1:numberOfSensor
-    arg = atan2.(m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 6],
+    arg = atan.(m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 6],
      m[(sIdx - 1) * numberOfDirect + 1: sIdx * numberOfDirect, 5]);
     arg = alignment(arg); # alignment to remove false jumps.
     (lo, hi) = derivativeCheck(arg);
@@ -144,7 +146,7 @@ rejection  = 5e-2; # fidelity rejection rate
 decay      = 10;   # fidelity heristic decay
 iteration  = 0;    # iteration number
 rankThres  = 3600;   # acceptable rays
-p          = linspace(-ext,ext, N);
+p          = range(-ext, stop=ext, length=N);
 hi         = searchsortedfirst(p, 1.0);
 lo         = searchsortedlast(p, -1.0);
 h          = p[2] - p[1];
@@ -177,14 +179,14 @@ for i = 1:N
         end
     end
 end
-Edx = find(Edx);
-Ldx = find(Ldx);
-Idx = find(Idx);
+Edx = findall(x -> !iszero(x), Edx);
+Ldx = findall(x -> !iszero(x), Ldx);
+Idx = findall(x -> !iszero(x), Idx);
 
 c0 = interpolation(regularize, c0, Ldx, N);
 Ldx = setdiff(Ldx, Edx);
 mask = NaN*ones(N^2);mask[Ldx] = 0.; mask = reshape(mask, N,N); #NaN mask
-@everywhere gc(); # gc before going into main loop.
+@everywhere GC.gc(); # gc before going into main loop.
 
 c0 = 0.8 * ones(size(c0))
 ################################################################################
@@ -225,7 +227,7 @@ while true
         end
     end
 
-    order = find(perc);
+    order = findall(x -> !iszero(x), perc);
     order = reshape([4 * order - 3 4 * order - 2 4 * order - 1 4 * order]', size(order, 1) * 4, );
 
     𝔐 = M[order, Idx];
@@ -241,7 +243,7 @@ while true
     tic();
     for k = 1:size(order, 1)
         if residual[k] < rejection
-            id_ = find(M[order[k],:]);
+            id_ = findall(x -> !iszero(x), M[order[k],:]);
             fidelty[id_] = max.(fidelty[id_], 1 - decay * residual[k]);
         end
     end
@@ -283,14 +285,14 @@ while true
     interpolation="bilinear", cmap = cmap);colorbar();
     draw();
 
-    @everywhere gc();
+    @everywhere GC.gc();
 end
 ################################################################################
 T["solving"] = toq();
 for el in T
     print(@sprintf("%8s: %6.2f s\n", el[1], el[2]));
 end
-@everywhere gc();
+@everywhere GC.gc();
 # post-processing.(save, figure, etc.)
 ################################################################################
 #=
@@ -311,7 +313,7 @@ orthoIndex =filter(I->similarity(m[I,1:2], m[I,5:6]) > 0.995 &&
 m[:,9] *=accurateTimeStep*0.5;
 NonReflectionPlot(c0, m[orthoIndex,:], ext, accurateTimeStep);
 
-th = linspace(0, 2*pi, 300);
+th = range(0, stop=2*pi, length=300);
 # r = (0.4 - 0.2* cos.(3 *th));
 r = 0.3
 xx = r .* cos.(th);

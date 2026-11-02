@@ -1,3 +1,5 @@
+using Distributed
+
 addprocs(3)
 using PyPlot
 @everywhere using Suppressor

@@ -1,5 +1,5 @@
 function similarity(X, Y)
-    return cos(atan2(X[1], X[2]) - atan2(Y[1], Y[2]));
+    return cos(atan(X[1], X[2]) - atan(Y[1], Y[2]));
 end
 # align polar coordinate
 function alignment(signal)
