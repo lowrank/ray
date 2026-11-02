@@ -29,7 +29,7 @@ end
     hYY = (z'* hess[I,J,9:12])[1];
     h = [hXX hXY;hXY hYY]; # hessian
     g = [gcX, gcY];
-    M = [2 * c * X[3:4] * g' c^2*I; -(c*h + g*g') * τ  -2*c * g*X[3:4]'];
+    M = [2 * c * X[3:4] * g' c^2*Matrix{Float64}(LinearAlgebra.I, 2, 2); -(c*h + g*g') * τ  -2*c * g*X[3:4]'];
 
     return H, M
 end
